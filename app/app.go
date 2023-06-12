@@ -1,6 +1,6 @@
 package app
 
-import "github.com/vitalvas/proxmox-cloud-resource-scheduler/app/proxmox"
+import "github.com/vitalvas/proxmox-cloud-resource-scheduler/internal/proxmox"
 
 type App struct {
 	config  *Config

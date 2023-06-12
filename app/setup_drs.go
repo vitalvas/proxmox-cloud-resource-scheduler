@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/vitalvas/proxmox-cloud-resource-scheduler/app/proxmox"
+	"github.com/vitalvas/proxmox-cloud-resource-scheduler/internal/proxmox"
 )
 
 const (
