@@ -4,6 +4,5 @@ Make your cloud out of a Proxmox Cluster!
 
 ## Roadmap
 
-### Dynamic Resource Scheduler
-
-### Auto Scaler
+* Dynamic Resource Scheduler
+* Auto Scaler
