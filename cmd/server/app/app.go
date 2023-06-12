@@ -2,6 +2,7 @@ package app
 
 import (
 	"log"
+	"time"
 
 	"github.com/vitalvas/proxmox-cloud-resource-scheduler/internal/config"
 	"github.com/vitalvas/proxmox-cloud-resource-scheduler/internal/proxmox"
@@ -34,6 +35,10 @@ func New() *App {
 }
 
 func (app *App) Run() {
-	app.SetupDRS()
-	app.SetupDRSQemu()
+	for {
+		app.SetupDRS()
+		app.SetupDRSQemu()
+
+		time.Sleep(time.Minute)
+	}
 }
