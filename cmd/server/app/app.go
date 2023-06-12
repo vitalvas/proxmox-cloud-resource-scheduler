@@ -31,6 +31,8 @@ func New() *App {
 		}
 	}
 
+	go app.httpServer()
+
 	return app
 }
 
