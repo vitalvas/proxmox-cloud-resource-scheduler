@@ -28,6 +28,7 @@ func (p *Proxmox) AddNode(node string) {
 }
 
 func (p *Proxmox) getNodeURL() string {
+	// TODO: add dynamic select alive node
 	return p.nodes[0]
 }
 
