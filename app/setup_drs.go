@@ -14,11 +14,11 @@ const (
 	drsMinNodePriority = 1
 )
 
-func (this *App) SetupDRS() {
-	hasSharedStorage := this.proxmox.HasSharedStorage()
+func (app *App) SetupDRS() {
+	hasSharedStorage := app.proxmox.HasSharedStorage()
 
-	ha_groups := this.proxmox.ClusterHAGroupList()
-	nodes := this.proxmox.NodeList()
+	haGroups := app.proxmox.ClusterHAGroupList()
+	nodes := app.proxmox.NodeList()
 
 	actualHaGroups := make(map[string]bool)
 
@@ -35,7 +35,7 @@ func (this *App) SetupDRS() {
 			actualHaGroups[haGroupPrefer] = true
 		}
 
-		for _, group := range ha_groups {
+		for _, group := range haGroups {
 			if !createdPin && haGroupPin == group.Group {
 				createdPin = true
 			}
@@ -48,7 +48,7 @@ func (this *App) SetupDRS() {
 		if !createdPin {
 			log.Println("creating ha group", haGroupPin)
 
-			this.proxmox.ClusterHAGroupCreate(proxmox.ClusterHAGroup{
+			app.proxmox.ClusterHAGroupCreate(proxmox.ClusterHAGroup{
 				Group:      haGroupPin,
 				Nodes:      fmt.Sprintf("%s:%d", row.Node, drsMaxNodePriority),
 				NoFailback: 1,
@@ -73,9 +73,9 @@ func (this *App) SetupDRS() {
 				}
 			}
 
-			sort.Sort(sort.StringSlice(groupNodes))
+			sort.Strings(groupNodes)
 
-			this.proxmox.ClusterHAGroupCreate(proxmox.ClusterHAGroup{
+			app.proxmox.ClusterHAGroupCreate(proxmox.ClusterHAGroup{
 				Group:      haGroupPrefer,
 				Nodes:      strings.Join(groupNodes, ","),
 				NoFailback: 1,
@@ -84,14 +84,14 @@ func (this *App) SetupDRS() {
 		}
 	}
 
-	for _, row := range this.proxmox.ClusterHAGroupList() {
+	for _, row := range app.proxmox.ClusterHAGroupList() {
 		if strings.HasPrefix(row.Group, "drs-pin-node-") ||
 			strings.HasPrefix(row.Group, "drs-prefer-node-") {
 
 			if _, exists := actualHaGroups[row.Group]; !exists {
 				log.Println("deleting ha group", row.Group)
 
-				this.proxmox.ClusterHAGroupDelete(proxmox.ClusterHAGroup{Group: row.Group})
+				app.proxmox.ClusterHAGroupDelete(proxmox.ClusterHAGroup{Group: row.Group})
 			}
 
 		}

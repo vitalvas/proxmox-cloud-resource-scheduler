@@ -23,8 +23,8 @@ type Storage struct {
 	Path         string `json:"path"`
 }
 
-func (this *Proxmox) StorageList() []Storage {
-	resp, err := this.makeHTTPRequest(http.MethodGet, "storage", nil)
+func (p *Proxmox) StorageList() []Storage {
+	resp, err := p.makeHTTPRequest(http.MethodGet, "storage", nil)
 	if err != nil {
 		log.Fatal(err)
 	}

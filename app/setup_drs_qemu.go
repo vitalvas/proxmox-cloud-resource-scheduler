@@ -8,13 +8,13 @@ import (
 	"github.com/vitalvas/proxmox-cloud-resource-scheduler/app/proxmox"
 )
 
-func (this *App) SetupDRSQemu() {
-	resources := this.proxmox.ClusterHAResourcesList()
+func (app *App) SetupDRSQemu() {
+	resources := app.proxmox.ClusterHAResourcesList()
 
-	for _, node := range this.proxmox.NodeList() {
+	for _, node := range app.proxmox.NodeList() {
 		haGroupPin := fmt.Sprintf("drs-pin-node-%s", strings.ToLower(node.Node))
 
-		for _, vm := range this.proxmox.NodeQEMUList(node) {
+		for _, vm := range app.proxmox.NodeQEMUList(node) {
 			if vm.Template == 1 {
 				continue
 			}
@@ -50,7 +50,7 @@ func (this *App) SetupDRSQemu() {
 			}
 
 			if !haveResource {
-				this.proxmox.ClusterHAResourcesCreate(data)
+				app.proxmox.ClusterHAResourcesCreate(data)
 
 				log.Println("add ha resource for", sid, vm.Name)
 			}

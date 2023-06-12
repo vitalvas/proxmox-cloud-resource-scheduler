@@ -24,7 +24,7 @@ func New() *App {
 	return app
 }
 
-func (this *App) Run() {
-	this.SetupDRS()
-	this.SetupDRSQemu()
+func (app *App) Run() {
+	app.SetupDRS()
+	app.SetupDRSQemu()
 }

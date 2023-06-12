@@ -20,8 +20,8 @@ type ClusterHAGroup struct {
 	Nodes      string `json:"nodes"`
 }
 
-func (this *Proxmox) ClusterHAGroupList() []ClusterHAGroup {
-	resp, err := this.makeHTTPRequest(http.MethodGet, "cluster/ha/groups", nil)
+func (p *Proxmox) ClusterHAGroupList() []ClusterHAGroup {
+	resp, err := p.makeHTTPRequest(http.MethodGet, "cluster/ha/groups", nil)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -47,7 +47,7 @@ func (this *Proxmox) ClusterHAGroupList() []ClusterHAGroup {
 	return nil
 }
 
-func (this *Proxmox) ClusterHAGroupCreate(group ClusterHAGroup) {
+func (p *Proxmox) ClusterHAGroupCreate(group ClusterHAGroup) {
 	data := url.Values{}
 
 	data.Add("group", group.Group)
@@ -57,7 +57,7 @@ func (this *Proxmox) ClusterHAGroupCreate(group ClusterHAGroup) {
 
 	encodedData := data.Encode()
 
-	resp, err := this.makeHTTPRequest(http.MethodPost, "cluster/ha/groups", strings.NewReader(encodedData))
+	resp, err := p.makeHTTPRequest(http.MethodPost, "cluster/ha/groups", strings.NewReader(encodedData))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -69,10 +69,10 @@ func (this *Proxmox) ClusterHAGroupCreate(group ClusterHAGroup) {
 	}
 }
 
-func (this *Proxmox) ClusterHAGroupDelete(group ClusterHAGroup) {
+func (p *Proxmox) ClusterHAGroupDelete(group ClusterHAGroup) {
 	path := fmt.Sprintf("cluster/ha/groups/%s", group.Group)
 
-	resp, err := this.makeHTTPRequest(http.MethodDelete, path, nil)
+	resp, err := p.makeHTTPRequest(http.MethodDelete, path, nil)
 	if err != nil {
 		log.Fatal(err)
 	}

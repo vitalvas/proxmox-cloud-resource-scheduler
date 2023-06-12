@@ -21,8 +21,8 @@ type ClusterHAResources struct {
 	State       string `json:"state"`
 }
 
-func (this *Proxmox) ClusterHAResourcesList() []ClusterHAResources {
-	resp, err := this.makeHTTPRequest(http.MethodGet, "cluster/ha/resources", nil)
+func (p *Proxmox) ClusterHAResourcesList() []ClusterHAResources {
+	resp, err := p.makeHTTPRequest(http.MethodGet, "cluster/ha/resources", nil)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -47,7 +47,7 @@ func (this *Proxmox) ClusterHAResourcesList() []ClusterHAResources {
 	return tmp.Data
 }
 
-func (this *Proxmox) ClusterHAResourcesCreate(resource ClusterHAResources) {
+func (p *Proxmox) ClusterHAResourcesCreate(resource ClusterHAResources) {
 	data := url.Values{}
 
 	data.Add("sid", resource.SID)
@@ -59,7 +59,7 @@ func (this *Proxmox) ClusterHAResourcesCreate(resource ClusterHAResources) {
 
 	encodedData := data.Encode()
 
-	resp, err := this.makeHTTPRequest(http.MethodPost, "cluster/ha/resources", strings.NewReader(encodedData))
+	resp, err := p.makeHTTPRequest(http.MethodPost, "cluster/ha/resources", strings.NewReader(encodedData))
 	if err != nil {
 		log.Fatal(err)
 	}

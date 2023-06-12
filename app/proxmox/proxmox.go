@@ -16,21 +16,19 @@ type Proxmox struct {
 }
 
 func New() *Proxmox {
-	this := &Proxmox{}
-
-	return this
+	return &Proxmox{}
 }
 
-func (this *Proxmox) SetAuth(login, token string) {
-	this.token = fmt.Sprintf("%s!%s", login, token)
+func (p *Proxmox) SetAuth(login, token string) {
+	p.token = fmt.Sprintf("%s!%s", login, token)
 }
 
-func (this *Proxmox) AddNode(node string) {
-	this.nodes = append(this.nodes, node)
+func (p *Proxmox) AddNode(node string) {
+	p.nodes = append(p.nodes, node)
 }
 
-func (this *Proxmox) getNodeURL() string {
-	return this.nodes[0]
+func (p *Proxmox) getNodeURL() string {
+	return p.nodes[0]
 }
 
 func joinPath(a, b string) string {
@@ -44,13 +42,13 @@ func joinPath(a, b string) string {
 	return u.String()
 }
 
-func (this *Proxmox) makeHTTPRequest(method, url string, body io.Reader) (*http.Response, error) {
-	req, err := http.NewRequest(method, joinPath(this.getNodeURL(), url), body)
+func (p *Proxmox) makeHTTPRequest(method, url string, body io.Reader) (*http.Response, error) {
+	req, err := http.NewRequest(method, joinPath(p.getNodeURL(), url), body)
 	if err != nil {
 		return nil, err
 	}
 
-	req.Header.Add("Authorization", fmt.Sprintf("PVEAPIToken=%s", this.token))
+	req.Header.Add("Authorization", fmt.Sprintf("PVEAPIToken=%s", p.token))
 
 	if method == http.MethodPost || method == http.MethodPut {
 		req.Header.Add("Content-Type", "application/x-www-form-urlencoded")

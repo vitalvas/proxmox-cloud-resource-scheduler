@@ -28,10 +28,10 @@ type NodeQEMU struct {
 	Template  uint    `json:"template"`
 }
 
-func (this *Proxmox) NodeQEMUList(node Node) []NodeQEMU {
+func (p *Proxmox) NodeQEMUList(node Node) []NodeQEMU {
 	path := fmt.Sprintf("nodes/%s/qemu", node.Node)
 
-	resp, err := this.makeHTTPRequest(http.MethodGet, path, nil)
+	resp, err := p.makeHTTPRequest(http.MethodGet, path, nil)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -22,8 +22,8 @@ type Node struct {
 	MaxMem         uint64  `json:"maxmem"`
 }
 
-func (this *Proxmox) NodeList() []Node {
-	resp, err := this.makeHTTPRequest(http.MethodGet, "nodes", nil)
+func (p *Proxmox) NodeList() []Node {
+	resp, err := p.makeHTTPRequest(http.MethodGet, "nodes", nil)
 	if err != nil {
 		log.Fatal(err)
 	}
