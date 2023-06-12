@@ -20,7 +20,7 @@ type ClusterHAGroup struct {
 	Nodes      string `json:"nodes"`
 }
 
-func (p *Proxmox) ClusterHAGroupList() []ClusterHAGroup {
+func (p *Proxmox) ClusterHAGroupList() ([]ClusterHAGroup, error) {
 	resp, err := p.makeHTTPRequest(http.MethodGet, "cluster/ha/groups", nil)
 	if err != nil {
 		log.Fatal(err)
@@ -31,7 +31,7 @@ func (p *Proxmox) ClusterHAGroupList() []ClusterHAGroup {
 	if resp.StatusCode == http.StatusOK {
 		bodyBytes, err := io.ReadAll(resp.Body)
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 
 		var tmp struct {
@@ -39,15 +39,14 @@ func (p *Proxmox) ClusterHAGroupList() []ClusterHAGroup {
 		}
 
 		json.Unmarshal(bodyBytes, &tmp)
-		return tmp.Data
-	} else {
-		log.Fatal("wrong status code:", resp.StatusCode)
+
+		return tmp.Data, nil
 	}
 
-	return nil
+	return nil, fmt.Errorf("wrong status code: %d", resp.StatusCode)
 }
 
-func (p *Proxmox) ClusterHAGroupCreate(group ClusterHAGroup) {
+func (p *Proxmox) ClusterHAGroupCreate(group ClusterHAGroup) error {
 	data := url.Values{}
 
 	data.Add("group", group.Group)
@@ -59,27 +58,31 @@ func (p *Proxmox) ClusterHAGroupCreate(group ClusterHAGroup) {
 
 	resp, err := p.makeHTTPRequest(http.MethodPost, "cluster/ha/groups", strings.NewReader(encodedData))
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		log.Fatal("wrong status code:", resp.StatusCode)
+		return fmt.Errorf("wrong status code: %d", resp.StatusCode)
 	}
+
+	return nil
 }
 
-func (p *Proxmox) ClusterHAGroupDelete(group ClusterHAGroup) {
+func (p *Proxmox) ClusterHAGroupDelete(group ClusterHAGroup) error {
 	path := fmt.Sprintf("cluster/ha/groups/%s", group.Group)
 
 	resp, err := p.makeHTTPRequest(http.MethodDelete, path, nil)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		log.Fatal("wrong status code:", resp.StatusCode)
+		return fmt.Errorf("wrong status code: %d", resp.StatusCode)
 	}
+
+	return nil
 }

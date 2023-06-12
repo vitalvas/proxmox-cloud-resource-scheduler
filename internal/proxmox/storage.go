@@ -2,6 +2,7 @@ package proxmox
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -23,7 +24,7 @@ type Storage struct {
 	Path         string `json:"path"`
 }
 
-func (p *Proxmox) StorageList() []Storage {
+func (p *Proxmox) StorageList() ([]Storage, error) {
 	resp, err := p.makeHTTPRequest(http.MethodGet, "storage", nil)
 	if err != nil {
 		log.Fatal(err)
@@ -34,7 +35,7 @@ func (p *Proxmox) StorageList() []Storage {
 	if resp.StatusCode == http.StatusOK {
 		bodyBytes, err := io.ReadAll(resp.Body)
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 
 		var tmp struct {
@@ -42,10 +43,9 @@ func (p *Proxmox) StorageList() []Storage {
 		}
 
 		json.Unmarshal(bodyBytes, &tmp)
-		return tmp.Data
-	} else {
-		log.Fatal("wrong status code:", resp.StatusCode)
+
+		return tmp.Data, nil
 	}
 
-	return nil
+	return nil, fmt.Errorf("wrong status code: %d", resp.StatusCode)
 }

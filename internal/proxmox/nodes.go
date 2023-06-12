@@ -2,8 +2,8 @@ package proxmox
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
-	"log"
 	"net/http"
 )
 
@@ -22,10 +22,10 @@ type Node struct {
 	MaxMem         uint64  `json:"maxmem"`
 }
 
-func (p *Proxmox) NodeList() []Node {
+func (p *Proxmox) NodeList() ([]Node, error) {
 	resp, err := p.makeHTTPRequest(http.MethodGet, "nodes", nil)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	defer resp.Body.Close()
@@ -33,7 +33,7 @@ func (p *Proxmox) NodeList() []Node {
 	if resp.StatusCode == http.StatusOK {
 		bodyBytes, err := io.ReadAll(resp.Body)
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 
 		var tmp struct {
@@ -41,10 +41,9 @@ func (p *Proxmox) NodeList() []Node {
 		}
 
 		json.Unmarshal(bodyBytes, &tmp)
-		return tmp.Data
-	} else {
-		log.Fatal("wrong status code:", resp.StatusCode)
+
+		return tmp.Data, nil
 	}
 
-	return nil
+	return nil, fmt.Errorf("wrong status code: %d", resp.StatusCode)
 }

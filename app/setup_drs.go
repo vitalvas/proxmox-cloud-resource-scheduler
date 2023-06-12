@@ -14,11 +14,21 @@ const (
 	drsMinNodePriority = 1
 )
 
-func (app *App) SetupDRS() {
-	hasSharedStorage := app.proxmox.HasSharedStorage()
+func (app *App) SetupDRS() error {
+	hasSharedStorage, err := app.proxmox.HasSharedStorage()
+	if err != nil {
+		return err
+	}
 
-	haGroups := app.proxmox.ClusterHAGroupList()
-	nodes := app.proxmox.NodeList()
+	haGroups, err := app.proxmox.ClusterHAGroupList()
+	if err != nil {
+		return err
+	}
+
+	nodes, err := app.proxmox.NodeList()
+	if err != nil {
+		return err
+	}
 
 	actualHaGroups := make(map[string]bool)
 
@@ -84,7 +94,11 @@ func (app *App) SetupDRS() {
 		}
 	}
 
-	for _, row := range app.proxmox.ClusterHAGroupList() {
+	clusterHAGroupList, err := app.proxmox.ClusterHAGroupList()
+	if err != nil {
+		return err
+	}
+	for _, row := range clusterHAGroupList {
 		if strings.HasPrefix(row.Group, "drs-pin-node-") ||
 			strings.HasPrefix(row.Group, "drs-prefer-node-") {
 
@@ -97,4 +111,5 @@ func (app *App) SetupDRS() {
 		}
 	}
 
+	return nil
 }

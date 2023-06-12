@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 )
 
@@ -28,24 +27,23 @@ type NodeQEMU struct {
 	Template  uint    `json:"template"`
 }
 
-func (p *Proxmox) NodeQEMUList(node Node) []NodeQEMU {
+func (p *Proxmox) NodeQEMUList(node Node) ([]NodeQEMU, error) {
 	path := fmt.Sprintf("nodes/%s/qemu", node.Node)
 
 	resp, err := p.makeHTTPRequest(http.MethodGet, path, nil)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		log.Fatal("wrong status code:", resp.StatusCode)
-		return nil
+		return nil, fmt.Errorf("wrong status code: %d", resp.StatusCode)
 	}
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	var tmp struct {
@@ -53,5 +51,6 @@ func (p *Proxmox) NodeQEMUList(node Node) []NodeQEMU {
 	}
 
 	json.Unmarshal(bodyBytes, &tmp)
-	return tmp.Data
+
+	return tmp.Data, nil
 }

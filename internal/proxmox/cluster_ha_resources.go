@@ -2,8 +2,8 @@ package proxmox
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -21,22 +21,21 @@ type ClusterHAResources struct {
 	State       string `json:"state"`
 }
 
-func (p *Proxmox) ClusterHAResourcesList() []ClusterHAResources {
+func (p *Proxmox) ClusterHAResourcesList() ([]ClusterHAResources, error) {
 	resp, err := p.makeHTTPRequest(http.MethodGet, "cluster/ha/resources", nil)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		log.Fatal("wrong status code:", resp.StatusCode)
-		return nil
+		return nil, fmt.Errorf("wrong status code: %d", resp.StatusCode)
 	}
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	var tmp struct {
@@ -44,10 +43,11 @@ func (p *Proxmox) ClusterHAResourcesList() []ClusterHAResources {
 	}
 
 	json.Unmarshal(bodyBytes, &tmp)
-	return tmp.Data
+
+	return tmp.Data, nil
 }
 
-func (p *Proxmox) ClusterHAResourcesCreate(resource ClusterHAResources) {
+func (p *Proxmox) ClusterHAResourcesCreate(resource ClusterHAResources) error {
 	data := url.Values{}
 
 	data.Add("sid", resource.SID)
@@ -61,13 +61,14 @@ func (p *Proxmox) ClusterHAResourcesCreate(resource ClusterHAResources) {
 
 	resp, err := p.makeHTTPRequest(http.MethodPost, "cluster/ha/resources", strings.NewReader(encodedData))
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		log.Fatal("wrong status code:", resp.StatusCode)
+		return fmt.Errorf("wrong status code: %d", resp.StatusCode)
 	}
 
+	return nil
 }
