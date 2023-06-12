@@ -36,7 +36,7 @@ type ClusterResource struct {
 	Template   int     `json:"template"`
 	Type       string  `json:"type"`
 	Uptime     int     `json:"uptime"`
-	VmID       int     `json:"vmid"`
+	VMID       int     `json:"vmid"`
 }
 
 func (cr *ClusterResource) GetTags() []string {
