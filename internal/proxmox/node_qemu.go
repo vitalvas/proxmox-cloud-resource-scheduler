@@ -25,6 +25,7 @@ type NodeQEMU struct {
 	CPUs      uint    `json:"cpus"`
 	Lock      string  `json:"lock"`
 	Template  uint    `json:"template"`
+	Tags      string  `json:"tags"`
 }
 
 func (p *Proxmox) NodeQEMUList(node Node) ([]NodeQEMU, error) {

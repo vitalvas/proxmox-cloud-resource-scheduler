@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/vitalvas/proxmox-cloud-resource-scheduler/internal/proxmox"
 	"github.com/vitalvas/proxmox-cloud-resource-scheduler/internal/tools"
@@ -29,6 +30,10 @@ func (app *App) SetupCRSQemu() error {
 
 		for _, vm := range qemuList {
 			if vm.Template == 1 {
+				continue
+			}
+
+			if strings.Contains(vm.Tags, "crs-skip") {
 				continue
 			}
 
