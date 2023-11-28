@@ -8,7 +8,7 @@ import (
 	"github.com/vitalvas/proxmox-cloud-resource-scheduler/internal/proxmox"
 )
 
-func (app *App) SetupDRSQemu() error {
+func (app *App) SetupCRSQemu() error {
 	resources, err := app.proxmox.ClusterHAResourcesList()
 	if err != nil {
 		return err
@@ -20,7 +20,7 @@ func (app *App) SetupDRSQemu() error {
 	}
 
 	for _, node := range nodeList {
-		haGroupPin := fmt.Sprintf("drs-pin-node-%s", strings.ToLower(node.Node))
+		haGroupPin := fmt.Sprintf("crs-pin-node-%s", strings.ToLower(node.Node))
 
 		qemuList, err := app.proxmox.NodeQEMUList(node)
 		if err != nil {
@@ -45,7 +45,7 @@ func (app *App) SetupDRSQemu() error {
 			data := proxmox.ClusterHAResources{
 				SID:         sid,
 				Type:        "vm",
-				Comment:     "drs-managed",
+				Comment:     "crs-managed",
 				MaxRelocate: 10,
 				MaxRestart:  10,
 				Group:       haGroupPin,

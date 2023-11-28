@@ -10,11 +10,11 @@ import (
 )
 
 const (
-	drsMaxNodePriority = 1000
-	drsMinNodePriority = 1
+	crsMaxNodePriority = 1000
+	crsMinNodePriority = 1
 )
 
-func (app *App) SetupDRS() error {
+func (app *App) SetupCRS() error {
 	hasSharedStorage, err := app.proxmox.HasSharedStorage()
 	if err != nil {
 		return err
@@ -36,8 +36,8 @@ func (app *App) SetupDRS() error {
 		createdPin := false
 		createdPrefer := false
 
-		haGroupPin := fmt.Sprintf("drs-pin-node-%s", strings.ToLower(row.Node))
-		haGroupPrefer := fmt.Sprintf("drs-prefer-node-%s", strings.ToLower(row.Node))
+		haGroupPin := fmt.Sprintf("crs-pin-node-%s", strings.ToLower(row.Node))
+		haGroupPrefer := fmt.Sprintf("crs-prefer-node-%s", strings.ToLower(row.Node))
 
 		actualHaGroups[haGroupPin] = true
 
@@ -60,7 +60,7 @@ func (app *App) SetupDRS() error {
 
 			app.proxmox.ClusterHAGroupCreate(proxmox.ClusterHAGroup{
 				Group:      haGroupPin,
-				Nodes:      fmt.Sprintf("%s:%d", row.Node, drsMaxNodePriority),
+				Nodes:      fmt.Sprintf("%s:%d", row.Node, crsMaxNodePriority),
 				NoFailback: 1,
 				Restricted: 1,
 			})
@@ -74,11 +74,11 @@ func (app *App) SetupDRS() error {
 			for _, node := range nodes {
 				if node.Node == row.Node {
 					groupNodes = append(groupNodes,
-						fmt.Sprintf("%s:%d", node.Node, drsMaxNodePriority),
+						fmt.Sprintf("%s:%d", node.Node, crsMaxNodePriority),
 					)
 				} else {
 					groupNodes = append(groupNodes,
-						fmt.Sprintf("%s:%d", node.Node, drsMinNodePriority),
+						fmt.Sprintf("%s:%d", node.Node, crsMinNodePriority),
 					)
 				}
 			}
@@ -99,8 +99,8 @@ func (app *App) SetupDRS() error {
 		return err
 	}
 	for _, row := range clusterHAGroupList {
-		if strings.HasPrefix(row.Group, "drs-pin-node-") ||
-			strings.HasPrefix(row.Group, "drs-prefer-node-") {
+		if strings.HasPrefix(row.Group, "crs-pin-node-") ||
+			strings.HasPrefix(row.Group, "crs-prefer-node-") {
 
 			if _, exists := actualHaGroups[row.Group]; !exists {
 				log.Println("deleting ha group", row.Group)
