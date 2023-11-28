@@ -46,35 +46,8 @@ func Execute() {
 	}
 
 	group.Go(func() error {
-		var leaderSession string
-
 		run := func(_ context.Context) error {
-			leaderInterval := periodicTime * 3
-
-			var isLeader bool
-
-			if len(leaderSession) == 0 {
-				leader, leaderSessionID, err := app.consul.GetLeader("periodic", leaderInterval)
-				if err != nil {
-					return err
-				}
-
-				leaderSession = leaderSessionID
-				isLeader = leader
-			} else {
-				if err := app.consul.RenewLeader(leaderSession, leaderInterval); err != nil {
-					return err
-				}
-				isLeader = true
-			}
-
-			if isLeader {
-				if err := app.runPeriodic(); err != nil {
-					return err
-				}
-			}
-
-			return nil
+			return app.runPeriodic()
 		}
 
 		err := xcmd.PeriodicRun(ctx, run, time.Duration(periodicTime)*time.Second)
