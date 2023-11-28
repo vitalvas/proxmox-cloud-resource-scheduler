@@ -1,26 +1,18 @@
 version: 2
 updates:
-  # Enable version updates for Go modules
   - package-ecosystem: "gomod"
     directory: "/"
-    commit-message:
-      prefix: "ci:"
     schedule:
       interval: weekly
-      day: sunday
     reviewers:
       - "vitalvas"
     assignees:
       - "vitalvas"
 
-  # Enable version updates for GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
-    commit-message:
-      prefix: "ci:"
     schedule:
       interval: weekly
-      day: sunday
     reviewers:
       - "vitalvas"
     assignees:
