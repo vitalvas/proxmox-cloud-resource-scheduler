@@ -36,12 +36,13 @@ server = true
 # For production need to use minimum 3 nodes (read consul requirements). I have only one node.
 bootstrap_expect = 1
 
-
 # Must have: `openssl rand -base64 32`
 encrypt = "..."
 ```
 
 #### Consul Agent
+
+Must be installed on all proxmox ve nodes.
 
 File: `/etc/consul.d/consul.hcl`
 
@@ -58,4 +59,21 @@ encrypt = "..."
 
 # List of consul servers
 retry_join = ["100.64.0.5"]
+```
+
+File: `/etc/consul.d/svc_proxmox.hcl`
+
+```hcl
+service {
+  id = "proxmox-pve"
+  name = "proxmox-pve"
+  tags = ["proxmox"]
+  port = 8006
+
+  check {
+    tcp = "localhost:8006"
+    interval = "5s"
+    timeout = "3s"
+  }
+}
 ```
