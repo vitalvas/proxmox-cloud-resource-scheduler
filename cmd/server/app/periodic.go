@@ -1,22 +1,12 @@
 package app
 
 import (
-	"context"
 	"fmt"
 )
 
-func (app *App) runPeriodic(_ context.Context) error {
-	lock, err := app.consul.GetLock("periodic")
-	if err != nil {
-		return err
-	}
+const periodicTime = 15
 
-	if _, err := lock.Lock(nil); err != nil {
-		return err
-	}
-
-	defer lock.Unlock()
-
+func (app *App) runPeriodic() error {
 	if err := app.SetupDRS(); err != nil {
 		return fmt.Errorf("setup DRS: %w", err)
 	}
