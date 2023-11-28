@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/vitalvas/proxmox-cloud-resource-scheduler/internal/proxmox"
+	"github.com/vitalvas/proxmox-cloud-resource-scheduler/internal/tools"
 )
 
 const (
@@ -36,8 +37,8 @@ func (app *App) SetupCRS() error {
 		createdPin := false
 		createdPrefer := false
 
-		haGroupPin := fmt.Sprintf("crs-pin-node-%s", strings.ToLower(row.Node))
-		haGroupPrefer := fmt.Sprintf("crs-prefer-node-%s", strings.ToLower(row.Node))
+		haGroupPin := tools.GetHAPinGroupName(row.Node)
+		haGroupPrefer := tools.GetHAPreferGroupName(row.Node)
 
 		actualHaGroups[haGroupPin] = true
 
@@ -85,29 +86,14 @@ func (app *App) SetupCRS() error {
 
 			sort.Strings(groupNodes)
 
-			app.proxmox.ClusterHAGroupCreate(proxmox.ClusterHAGroup{
+			if err := app.proxmox.ClusterHAGroupCreate(proxmox.ClusterHAGroup{
 				Group:      haGroupPrefer,
 				Nodes:      strings.Join(groupNodes, ","),
 				NoFailback: 1,
 				Restricted: 1,
-			})
-		}
-	}
-
-	clusterHAGroupList, err := app.proxmox.ClusterHAGroupList()
-	if err != nil {
-		return err
-	}
-	for _, row := range clusterHAGroupList {
-		if strings.HasPrefix(row.Group, "crs-pin-node-") ||
-			strings.HasPrefix(row.Group, "crs-prefer-node-") {
-
-			if _, exists := actualHaGroups[row.Group]; !exists {
-				log.Println("deleting ha group", row.Group)
-
-				app.proxmox.ClusterHAGroupDelete(proxmox.ClusterHAGroup{Group: row.Group})
+			}); err != nil {
+				return fmt.Errorf("failed to create ha group %s: %s", haGroupPrefer, err)
 			}
-
 		}
 	}
 

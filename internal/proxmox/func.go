@@ -1,6 +1,8 @@
 package proxmox
 
-import "strings"
+import (
+	"strings"
+)
 
 func (p *Proxmox) HasSharedStorage() (bool, error) {
 	list, err := p.StorageList()
