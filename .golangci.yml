@@ -30,3 +30,4 @@ linters-settings:
   gosec:
     excludes:
       - G402
+      - G404

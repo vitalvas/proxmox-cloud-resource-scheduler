@@ -10,20 +10,12 @@ pveum acl modify / --roles PVEAdmin --user 'cloud-resource-scheduler@pve'
 pveum acl modify / --roles PVEAdmin --tokens 'cloud-resource-scheduler@pve!scheduler'
 ```
 
-## Config file
+## Config
 
-```json
-{
-    "proxmox": {
-        "user": "cloud-resource-scheduler@pve",
-        "token": "scheduler=2e7ccf22-32f8-427b-ba44-29b327f32460",
-        "nodes": [
-            {"url":"https://pve-pool01-host01.example.com:8006"},
-            {"url":"https://pve-pool01-host02.example.com:8006"},
-            {"url":"https://pve-pool01-host03.example.com:8006"},
-            {"url":"https://pve-pool01-host04.example.com:8006"},
-            {"url":"https://pve-pool01-host05.example.com:8006"}
-        ]
-    }
-}
+All configuration is stored in consul.
+
+### Add authentication information to consul
+
+```shell
+echo '{"user":"cloud-resource-scheduler@pve", "token":"scheduler=2e7ccf22-32f8-427b-ba44-29b327f32460"}' | consul kv put crs/config/proxmox/auth -
 ```

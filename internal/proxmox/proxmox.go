@@ -5,31 +5,30 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"path"
 )
 
 type Proxmox struct {
-	nodes []string
-	token string
+	GetToken    func() (string, error)
+	GetNodesURL func() ([]string, error)
 }
 
 func New() *Proxmox {
 	return &Proxmox{}
 }
 
-func (p *Proxmox) SetAuth(login, token string) {
-	p.token = fmt.Sprintf("%s!%s", login, token)
-}
+func (p *Proxmox) getNodeURL() (string, error) {
+	list, err := p.GetNodesURL()
+	if err != nil {
+		return "", err
+	}
 
-func (p *Proxmox) AddNode(node string) {
-	p.nodes = append(p.nodes, node)
-}
+	n := rand.Intn(len(list))
 
-func (p *Proxmox) getNodeURL() string {
-	// TODO: add dynamic select alive node
-	return p.nodes[0]
+	return list[n], nil
 }
 
 func joinPath(a, b string) string {
@@ -44,12 +43,22 @@ func joinPath(a, b string) string {
 }
 
 func (p *Proxmox) makeHTTPRequest(method, url string, body io.Reader) (*http.Response, error) {
-	req, err := http.NewRequest(method, joinPath(p.getNodeURL(), url), body)
+	nodeURL, err := p.getNodeURL()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get node URL: %w", err)
+	}
+
+	req, err := http.NewRequest(method, joinPath(nodeURL, url), body)
 	if err != nil {
 		return nil, err
 	}
 
-	req.Header.Add("Authorization", fmt.Sprintf("PVEAPIToken=%s", p.token))
+	token, err := p.GetToken()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get token: %w", err)
+	}
+
+	req.Header.Add("Authorization", fmt.Sprintf("PVEAPIToken=%s", token))
 
 	if method == http.MethodPost || method == http.MethodPut {
 		req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
