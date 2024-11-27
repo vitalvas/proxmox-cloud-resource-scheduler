@@ -1,11 +1,11 @@
 module github.com/vitalvas/proxmox-cloud-resource-scheduler
 
-go 1.22
+go 1.23
 
 require (
 	github.com/gin-gonic/gin v1.10.0
 	github.com/hashicorp/consul/api v1.30.0
-	github.com/vitalvas/gokit v0.13.0
+	github.com/vitalvas/gokit v0.13.1
 	golang.org/x/sync v0.9.0
 )
 
@@ -48,7 +48,7 @@ require (
 	golang.org/x/crypto v0.23.0 // indirect
 	golang.org/x/exp v0.0.0-20240318143956-a85f2c67cd81 // indirect
 	golang.org/x/net v0.25.0 // indirect
-	golang.org/x/sys v0.24.0 // indirect
+	golang.org/x/sys v0.27.0 // indirect
 	golang.org/x/text v0.15.0 // indirect
 	google.golang.org/protobuf v1.34.1 // indirect
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
