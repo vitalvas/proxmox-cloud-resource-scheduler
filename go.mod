@@ -1,7 +1,6 @@
 module github.com/vitalvas/proxmox-cloud-resource-scheduler
 
-go 1.22
-toolchain go1.23.3
+go 1.23
 
 require (
 	github.com/gin-gonic/gin v1.10.0
