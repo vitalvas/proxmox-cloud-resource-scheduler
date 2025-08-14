@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/vitalvas/proxmox-cloud-resource-scheduler/internal/proxmox"
 	"github.com/vitalvas/proxmox-cloud-resource-scheduler/internal/tools"
@@ -75,6 +76,9 @@ func (s *Server) SetupCRSQemu() error {
 			}
 
 			log.Println("add ha resource for", sid, vm.Name)
+
+			// Sleep 500ms to avoid overwhelming the Proxmox API
+			time.Sleep(500 * time.Millisecond)
 		}
 	}
 

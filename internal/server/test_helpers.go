@@ -11,12 +11,12 @@ import (
 )
 
 type testHandlerConfig struct {
-	includeStorage      bool
+	includeStorage       bool
 	includeSharedStorage bool
-	includeHAGroups     bool
-	includeHAResources  bool
-	includeNodes        bool
-	includeNodeVMs      bool
+	includeHAGroups      bool
+	includeHAResources   bool
+	includeNodes         bool
+	includeNodeVMs       bool
 }
 
 func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Server) {

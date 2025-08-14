@@ -5,6 +5,7 @@ import (
 	"log"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/vitalvas/proxmox-cloud-resource-scheduler/internal/proxmox"
 	"github.com/vitalvas/proxmox-cloud-resource-scheduler/internal/tools"
@@ -177,6 +178,9 @@ func (s *Server) removeVMsFromHAGroup(groupName string) error {
 			if err := s.proxmox.DeleteClusterHAResource(resource.SID); err != nil {
 				return fmt.Errorf("failed to remove HA resource %s from group %s: %w", resource.SID, groupName, err)
 			}
+
+			// Sleep 500ms to avoid overwhelming the Proxmox API
+			time.Sleep(500 * time.Millisecond)
 		}
 	}
 

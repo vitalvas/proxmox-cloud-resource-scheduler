@@ -145,7 +145,7 @@ func TestGenerateActualHAGroupNames(t *testing.T) {
 				includeStorage:       tt.includeStorage,
 				includeSharedStorage: tt.includeSharedStorage,
 			}
-			
+
 			testServer, mockServer := createTestServerWithConfig(config)
 			defer mockServer.Close()
 
@@ -153,7 +153,7 @@ func TestGenerateActualHAGroupNames(t *testing.T) {
 
 			assert.NoError(t, err)
 			assert.Len(t, actualGroups, len(tt.expectedGroups))
-			
+
 			for _, expectedGroup := range tt.expectedGroups {
 				assert.True(t, actualGroups[expectedGroup], "Expected group %s to be present", expectedGroup)
 			}
@@ -181,7 +181,7 @@ func TestCleanupOrphanedHAGroups(t *testing.T) {
 				includeHAGroups:      true,
 				includeHAResources:   true,
 			}
-			
+
 			testServer, mockServer := createTestServerWithConfig(config)
 			defer mockServer.Close()
 
@@ -214,7 +214,7 @@ func TestRemoveVMsFromHAGroup(t *testing.T) {
 			config := testHandlerConfig{
 				includeHAResources: true,
 			}
-			
+
 			testServer, mockServer := createTestServerWithConfig(config)
 			defer mockServer.Close()
 
