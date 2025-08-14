@@ -50,5 +50,5 @@ func TestServer_RunContextCancellation(t *testing.T) {
 }
 
 func TestPeriodicTime(t *testing.T) {
-	assert.Equal(t, 10, periodicTime)
+	assert.Equal(t, 30, periodicTime)
 }

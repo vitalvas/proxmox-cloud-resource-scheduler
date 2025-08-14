@@ -23,23 +23,19 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 
 		switch r.URL.Path {
 		case "/api2/json/cluster/ha/groups":
-			if config.includeHAGroups {
-				switch r.Method {
-				case http.MethodGet:
-					w.Write([]byte(`{"data": []}`))
-				case http.MethodPost:
-					w.Write([]byte(`{"data": null}`))
-				}
+			switch r.Method {
+			case http.MethodGet:
+				w.Write([]byte(`{"data": []}`))
+			case http.MethodPost:
+				w.Write([]byte(`{"data": null}`))
 			}
 
 		case "/api2/json/cluster/ha/resources":
-			if config.includeHAResources {
-				switch r.Method {
-				case http.MethodGet:
-					w.Write([]byte(`{"data": []}`))
-				case http.MethodPost:
-					w.Write([]byte(`{"data": null}`))
-				}
+			switch r.Method {
+			case http.MethodGet:
+				w.Write([]byte(`{"data": []}`))
+			case http.MethodPost:
+				w.Write([]byte(`{"data": null}`))
 			}
 
 		case "/api2/json/nodes":
@@ -53,6 +49,8 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 						}
 					]
 				}`))
+			} else {
+				w.Write([]byte(`{"data": []}`))
 			}
 
 		case "/api2/json/nodes/pve1/qemu":
@@ -82,6 +80,8 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 						}
 					]
 				}`))
+			} else {
+				w.Write([]byte(`{"data": []}`))
 			}
 
 		case "/api2/json/storage":
@@ -95,6 +95,8 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 						}
 					]
 				}`))
+			} else {
+				w.Write([]byte(`{"data": []}`))
 			}
 
 		default:

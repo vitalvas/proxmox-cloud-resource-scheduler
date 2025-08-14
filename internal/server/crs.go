@@ -16,9 +16,65 @@ const (
 )
 
 func (s *Server) SetupCRS() error {
+	if err := s.SetupVMPin(); err != nil {
+		return fmt.Errorf("setup VM pin: %w", err)
+	}
+
+	if err := s.SetupVMPrefer(); err != nil {
+		return fmt.Errorf("setup VM prefer: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Server) SetupVMPin() error {
+	haGroups, err := s.proxmox.GetClusterHAGroups()
+	if err != nil {
+		return err
+	}
+
+	nodes, err := s.proxmox.GetNodes()
+	if err != nil {
+		return err
+	}
+
+	for _, node := range nodes {
+		haGroupPin := tools.GetHAVMPinGroupName(node.Node)
+		groupExists := false
+
+		for _, group := range haGroups {
+			if haGroupPin == group.Group {
+				groupExists = true
+				break
+			}
+		}
+
+		if !groupExists {
+			log.Println("creating ha group", haGroupPin)
+
+			_, err := s.proxmox.CreateClusterHAGroup(proxmox.ClusterHAGroup{
+				Group:      haGroupPin,
+				Nodes:      fmt.Sprintf("%s:%d", node.Node, crsMaxNodePriority),
+				NoFailback: 1,
+				Restricted: 1,
+			})
+			if err != nil {
+				return fmt.Errorf("failed to create ha group %s: %s", haGroupPin, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (s *Server) SetupVMPrefer() error {
 	hasSharedStorage, err := s.proxmox.HasSharedStorage()
 	if err != nil {
 		return err
+	}
+
+	if !hasSharedStorage {
+		return nil
 	}
 
 	haGroups, err := s.proxmox.GetClusterHAGroups()
@@ -31,58 +87,30 @@ func (s *Server) SetupCRS() error {
 		return err
 	}
 
-	actualHaGroups := make(map[string]bool)
-
-	for _, row := range nodes {
-		createdPin := false
-		createdPrefer := false
-
-		haGroupPin := tools.GetHAPinGroupName(row.Node)
-		haGroupPrefer := tools.GetHAPreferGroupName(row.Node)
-
-		actualHaGroups[haGroupPin] = true
-
-		if hasSharedStorage {
-			actualHaGroups[haGroupPrefer] = true
-		}
+	for _, node := range nodes {
+		haGroupPrefer := tools.GetHAVMPreferGroupName(node.Node)
+		groupExists := false
 
 		for _, group := range haGroups {
-			if !createdPin && haGroupPin == group.Group {
-				createdPin = true
-			}
-
-			if hasSharedStorage && !createdPrefer && haGroupPrefer == group.Group {
-				createdPrefer = true
+			if haGroupPrefer == group.Group {
+				groupExists = true
+				break
 			}
 		}
 
-		if !createdPin {
-			log.Println("creating ha group", haGroupPin)
-
-			_, err := s.proxmox.CreateClusterHAGroup(proxmox.ClusterHAGroup{
-				Group:      haGroupPin,
-				Nodes:      fmt.Sprintf("%s:%d", row.Node, crsMaxNodePriority),
-				NoFailback: 1,
-				Restricted: 1,
-			})
-			if err != nil {
-				return fmt.Errorf("failed to create ha group %s: %s", haGroupPin, err)
-			}
-		}
-
-		if hasSharedStorage && !createdPrefer {
+		if !groupExists {
 			log.Println("creating ha group", haGroupPrefer)
 
 			var groupNodes []string
 
-			for _, node := range nodes {
-				if node.Node == row.Node {
+			for _, n := range nodes {
+				if n.Node == node.Node {
 					groupNodes = append(groupNodes,
-						fmt.Sprintf("%s:%d", node.Node, crsMaxNodePriority),
+						fmt.Sprintf("%s:%d", n.Node, crsMaxNodePriority),
 					)
 				} else {
 					groupNodes = append(groupNodes,
-						fmt.Sprintf("%s:%d", node.Node, crsMinNodePriority),
+						fmt.Sprintf("%s:%d", n.Node, crsMinNodePriority),
 					)
 				}
 			}

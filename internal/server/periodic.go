@@ -4,7 +4,7 @@ import (
 	"fmt"
 )
 
-const periodicTime = 10
+const periodicTime = 30
 
 func (s *Server) runPeriodic() error {
 	if err := s.SetupCRS(); err != nil {

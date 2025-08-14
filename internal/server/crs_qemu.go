@@ -21,7 +21,7 @@ func (s *Server) SetupCRSQemu() error {
 	}
 
 	for _, node := range nodeList {
-		haGroupPin := tools.GetHAPinGroupName(node.Node)
+		haGroupPin := tools.GetHAVMPinGroupName(node.Node)
 
 		vmList, err := s.proxmox.GetNodeVMs(node.Node)
 		if err != nil {

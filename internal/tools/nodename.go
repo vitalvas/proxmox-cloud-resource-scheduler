@@ -15,10 +15,10 @@ func GetNodeName(name string) string {
 	return strings.ToLower(list[0])
 }
 
-func GetHAPinGroupName(name string) string {
-	return fmt.Sprintf("crs-pin-%s", GetNodeName(name))
+func GetHAVMPinGroupName(name string) string {
+	return fmt.Sprintf("crs-vm-pin-%s", GetNodeName(name))
 }
 
-func GetHAPreferGroupName(name string) string {
-	return fmt.Sprintf("crs-prefer-%s", GetNodeName(name))
+func GetHAVMPreferGroupName(name string) string {
+	return fmt.Sprintf("crs-vm-prefer-%s", GetNodeName(name))
 }
