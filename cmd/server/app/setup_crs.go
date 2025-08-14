@@ -21,12 +21,12 @@ func (app *App) SetupCRS() error {
 		return err
 	}
 
-	haGroups, err := app.proxmox.ClusterHAGroupList()
+	haGroups, err := app.proxmox.GetClusterHAGroups()
 	if err != nil {
 		return err
 	}
 
-	nodes, err := app.proxmox.NodeList()
+	nodes, err := app.proxmox.GetNodes()
 	if err != nil {
 		return err
 	}
@@ -59,12 +59,15 @@ func (app *App) SetupCRS() error {
 		if !createdPin {
 			log.Println("creating ha group", haGroupPin)
 
-			app.proxmox.ClusterHAGroupCreate(proxmox.ClusterHAGroup{
+			_, err := app.proxmox.CreateClusterHAGroup(proxmox.ClusterHAGroup{
 				Group:      haGroupPin,
 				Nodes:      fmt.Sprintf("%s:%d", row.Node, crsMaxNodePriority),
 				NoFailback: 1,
 				Restricted: 1,
 			})
+			if err != nil {
+				return fmt.Errorf("failed to create ha group %s: %s", haGroupPin, err)
+			}
 		}
 
 		if hasSharedStorage && !createdPrefer {
@@ -86,7 +89,7 @@ func (app *App) SetupCRS() error {
 
 			sort.Strings(groupNodes)
 
-			if err := app.proxmox.ClusterHAGroupCreate(proxmox.ClusterHAGroup{
+			if _, err := app.proxmox.CreateClusterHAGroup(proxmox.ClusterHAGroup{
 				Group:      haGroupPrefer,
 				Nodes:      strings.Join(groupNodes, ","),
 				NoFailback: 1,

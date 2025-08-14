@@ -10,12 +10,12 @@ import (
 )
 
 func (app *App) SetupCRSQemu() error {
-	resources, err := app.proxmox.ClusterHAResourcesList()
+	resources, err := app.proxmox.GetClusterHAResources()
 	if err != nil {
 		return err
 	}
 
-	nodeList, err := app.proxmox.NodeList()
+	nodeList, err := app.proxmox.GetNodes()
 	if err != nil {
 		return err
 	}
@@ -23,12 +23,12 @@ func (app *App) SetupCRSQemu() error {
 	for _, node := range nodeList {
 		haGroupPin := tools.GetHAPinGroupName(node.Node)
 
-		qemuList, err := app.proxmox.NodeQEMUList(node)
+		vmList, err := app.proxmox.GetNodeVMs(node.Node)
 		if err != nil {
 			return err
 		}
 
-		for _, vm := range qemuList {
+		for _, vm := range vmList {
 			if vm.Template == 1 {
 				continue
 			}
@@ -50,7 +50,7 @@ func (app *App) SetupCRSQemu() error {
 				continue
 			}
 
-			data := proxmox.ClusterHAResources{
+			data := proxmox.ClusterHAResource{
 				SID:         sid,
 				Type:        "vm",
 				Comment:     "crs-managed",
@@ -70,7 +70,7 @@ func (app *App) SetupCRSQemu() error {
 				data.State = "ignored"
 			}
 
-			if err := app.proxmox.ClusterHAResourcesCreate(data); err != nil {
+			if _, err := app.proxmox.CreateClusterHAResource(data); err != nil {
 				return fmt.Errorf("failed to create ha resource for %s: %s", sid, err)
 			}
 

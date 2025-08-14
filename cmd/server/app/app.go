@@ -13,7 +13,7 @@ import (
 )
 
 type App struct {
-	proxmox *proxmox.Proxmox
+	proxmox *proxmox.Client
 	consul  *consul.Consul
 }
 
@@ -23,14 +23,35 @@ func New() (*App, error) {
 		return nil, err
 	}
 
-	pve := proxmox.New()
-	pve.GetNodesURL = consul.GetPVENodesURL
-	pve.GetToken = consul.GetPVEAuthToken
+	// Get endpoints and token from consul
+	endpoints, err := consul.GetPVENodesURL()
+	if err != nil {
+		return nil, err
+	}
+
+	token, err := consul.GetPVEAuthToken()
+	if err != nil {
+		return nil, err
+	}
+
+	// Create proxmox client configuration
+	config := &proxmox.Config{
+		Endpoints: endpoints,
+		Auth: proxmox.AuthConfig{
+			Method:   "token",
+			APIToken: token,
+		},
+		TLS: proxmox.TLSConfig{
+			InsecureSkipVerify: true,
+		},
+	}
+
+	pveClient := proxmox.NewClient(config)
 
 	return &App{
 		consul:  consul,
-		proxmox: pve,
-	}, err
+		proxmox: pveClient,
+	}, nil
 }
 
 func Execute() {
