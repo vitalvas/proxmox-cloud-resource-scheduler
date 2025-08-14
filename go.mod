@@ -3,7 +3,7 @@ module github.com/vitalvas/proxmox-cloud-resource-scheduler
 go 1.23
 
 require (
-	github.com/gin-gonic/gin v1.10.0
+	github.com/gin-gonic/gin v1.10.1
 	github.com/hashicorp/consul/api v1.31.2
 	github.com/vitalvas/gokit v0.15.0
 	golang.org/x/sync v0.11.0
