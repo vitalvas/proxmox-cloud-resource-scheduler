@@ -236,6 +236,82 @@ func TestCRSConstants(t *testing.T) {
 	assert.Equal(t, "crs-skip", crsSkipTag)
 }
 
+func TestHasVMSkipTag(t *testing.T) {
+	tests := []struct {
+		name     string
+		vmTags   string
+		expected bool
+	}{
+		{
+			name:     "empty tags",
+			vmTags:   "",
+			expected: false,
+		},
+		{
+			name:     "has crs-skip tag",
+			vmTags:   "crs-skip",
+			expected: true,
+		},
+		{
+			name:     "has crs-skip tag with other tags",
+			vmTags:   "production;crs-skip;backup",
+			expected: true,
+		},
+		{
+			name:     "has other tags but not crs-skip",
+			vmTags:   "production;backup;testing",
+			expected: false,
+		},
+		{
+			name:     "has crs-skip with spaces",
+			vmTags:   "production; crs-skip ; backup",
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testServer, mockServer := createTestServer()
+			defer mockServer.Close()
+
+			result := testServer.hasVMSkipTag(tt.vmTags)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestRemoveSkippedVMsFromCRSGroups(t *testing.T) {
+	tests := []struct {
+		name    string
+		wantErr bool
+	}{
+		{
+			name:    "successful removal of skipped VMs",
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := testHandlerConfig{
+				includeClusterResources: true,
+				includeHAResources:      true,
+			}
+
+			testServer, mockServer := createTestServerWithConfig(config)
+			defer mockServer.Close()
+
+			err := testServer.RemoveSkippedVMsFromCRSGroups()
+
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
 func TestEnsureCRSTagRegistered(t *testing.T) {
 	tests := []struct {
 		name                  string

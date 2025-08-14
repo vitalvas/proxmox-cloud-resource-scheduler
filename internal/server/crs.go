@@ -35,6 +35,10 @@ func (s *Server) SetupCRS() error {
 		return fmt.Errorf("cleanup orphaned HA groups: %w", err)
 	}
 
+	if err := s.RemoveSkippedVMsFromCRSGroups(); err != nil {
+		return fmt.Errorf("remove skipped VMs from CRS groups: %w", err)
+	}
+
 	return nil
 }
 
@@ -261,5 +265,59 @@ func (s *Server) ensureCRSTagRegistered() error {
 	}
 
 	logging.Infof("Registered CRS tag '%s' in cluster options", crsSkipTag)
+	return nil
+}
+
+func (s *Server) hasVMSkipTag(vmTags string) bool {
+	if vmTags == "" {
+		return false
+	}
+
+	tags := strings.Split(vmTags, ";")
+	for _, tag := range tags {
+		if strings.TrimSpace(tag) == crsSkipTag {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Server) RemoveSkippedVMsFromCRSGroups() error {
+	logging.Debug("Checking for VMs with crs-skip tag in CRS HA groups")
+
+	resources, err := s.proxmox.GetClusterResources()
+	if err != nil {
+		return fmt.Errorf("failed to get cluster resources: %w", err)
+	}
+
+	haResources, err := s.proxmox.GetClusterHAResources()
+	if err != nil {
+		return fmt.Errorf("failed to get HA resources: %w", err)
+	}
+
+	for _, haResource := range haResources {
+		if !strings.HasPrefix(haResource.Group, "crs-") {
+			continue
+		}
+
+		var vmTags string
+		for _, resource := range resources {
+			resourceSID := fmt.Sprintf("vm:%d", resource.VMID)
+			if haResource.SID == resourceSID {
+				vmTags = resource.Tags
+				break
+			}
+		}
+
+		if s.hasVMSkipTag(vmTags) {
+			logging.Infof("Removing VM %s with crs-skip tag from CRS HA group %s", haResource.SID, haResource.Group)
+			if err := s.proxmox.DeleteClusterHAResource(haResource.SID); err != nil {
+				return fmt.Errorf("failed to remove VM %s from HA group %s: %w", haResource.SID, haResource.Group, err)
+			}
+
+			time.Sleep(500 * time.Millisecond)
+		}
+	}
+
 	return nil
 }

@@ -11,14 +11,15 @@ import (
 )
 
 type testHandlerConfig struct {
-	includeStorage        bool
-	includeSharedStorage  bool
-	includeHAGroups       bool
-	includeHAResources    bool
-	includeNodes          bool
-	includeNodeVMs        bool
-	includeClusterOptions bool
-	crsTagAlreadyExists   bool
+	includeStorage          bool
+	includeSharedStorage    bool
+	includeHAGroups         bool
+	includeHAResources      bool
+	includeNodes            bool
+	includeNodeVMs          bool
+	includeClusterOptions   bool
+	includeClusterResources bool
+	crsTagAlreadyExists     bool
 }
 
 func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Server) {
@@ -38,7 +39,26 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 		case "/api2/json/cluster/ha/resources":
 			switch r.Method {
 			case http.MethodGet:
-				w.Write([]byte(`{"data": []}`))
+				if config.includeHAResources {
+					w.Write([]byte(`{
+						"data": [
+							{
+								"sid": "vm:100",
+								"state": "started",
+								"group": "crs-vm-pin-pve1",
+								"type": "vm"
+							},
+							{
+								"sid": "vm:102",
+								"state": "started", 
+								"group": "crs-vm-prefer-pve1",
+								"type": "vm"
+							}
+						]
+					}`))
+				} else {
+					w.Write([]byte(`{"data": []}`))
+				}
 			case http.MethodPost:
 				w.Write([]byte(`{"data": null}`))
 			}
@@ -129,6 +149,43 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 				}
 			case http.MethodPut:
 				w.Write([]byte(`{"data": null}`))
+			}
+
+		case "/api2/json/cluster/resources":
+			if config.includeClusterResources {
+				w.Write([]byte(`{
+					"data": [
+						{
+							"id": "vm/100",
+							"type": "qemu",
+							"vmid": 100,
+							"name": "test-vm",
+							"node": "pve1",
+							"status": "running",
+							"tags": ""
+						},
+						{
+							"id": "vm/101", 
+							"type": "qemu",
+							"vmid": 101,
+							"name": "template-vm",
+							"node": "pve1", 
+							"status": "stopped",
+							"tags": ""
+						},
+						{
+							"id": "vm/102",
+							"type": "qemu", 
+							"vmid": 102,
+							"name": "skip-vm",
+							"node": "pve1",
+							"status": "running",
+							"tags": "crs-skip"
+						}
+					]
+				}`))
+			} else {
+				w.Write([]byte(`{"data": []}`))
 			}
 
 		default:

@@ -193,12 +193,12 @@ func (c *Client) makeRequest(method, endpoint string, body io.Reader, auth bool)
 			logging.Errorf("Failed to decode API error response: %v", err)
 			return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(respBodyBytes))
 		}
-		
+
 		// Set status code if not already set in API error
 		if apiErr.Status == 0 {
 			apiErr.Status = resp.StatusCode
 		}
-		
+
 		logging.Errorf("API Error: %+v", apiErr)
 		return nil, &apiErr
 	}

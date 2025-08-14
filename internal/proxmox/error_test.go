@@ -112,7 +112,7 @@ func TestNon2xxStatusCodes(t *testing.T) {
 			expectsError: true,
 		},
 		{
-			name:         "302 redirect with plain text", 
+			name:         "302 redirect with plain text",
 			statusCode:   302,
 			response:     `Plain text redirect`,
 			wantError:    "HTTP 302",
@@ -153,7 +153,7 @@ func TestNon2xxStatusCodes(t *testing.T) {
 
 			client := NewClient(config)
 			_, err := client.GetNodes()
-			
+
 			if tt.expectsError {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.wantError)
