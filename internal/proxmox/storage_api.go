@@ -52,7 +52,6 @@ func (c *Client) UploadToStorage(node, storage, filename string, content []byte)
 		return "", fmt.Errorf("failed to upload %s to storage %s on node %s: %w", filename, storage, node, err)
 	}
 
-	logging.Infof("Uploaded %s to storage %s on node %s, task: %s", filename, storage, node, taskID)
 	return taskID, nil
 }
 
@@ -64,7 +63,6 @@ func (c *Client) DeleteFromStorage(node, storage, volid string) (string, error) 
 		return "", fmt.Errorf("failed to delete %s from storage %s on node %s: %w", volid, storage, node, err)
 	}
 
-	logging.Infof("Deleted %s from storage %s on node %s, task: %s", volid, storage, node, taskID)
 	return taskID, nil
 }
 
@@ -103,7 +101,6 @@ func (c *Client) CreateStorageBackup(node, storage string, vmids []int, options 
 		return "", fmt.Errorf("failed to create storage backup on %s: %w", storage, err)
 	}
 
-	logging.Infof("Created storage backup on %s, task: %s", storage, taskID)
 	return taskID, nil
 }
 

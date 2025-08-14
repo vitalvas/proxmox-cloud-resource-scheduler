@@ -222,3 +222,7 @@ type ClusterConfig struct {
 	NodeList       interface{} `json:"nodelist"`
 	QuorumProvider string      `json:"quorum_provider"`
 }
+
+type ClusterOptions struct {
+	RegisteredTags []string `json:"registered-tags,omitempty"`
+}

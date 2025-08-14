@@ -59,7 +59,6 @@ func (c *Client) CreateContainer(node string, vmid int, config ContainerConfig) 
 		return "", fmt.Errorf("failed to create container %d on node %s: %w", vmid, node, err)
 	}
 
-	logging.Infof("Created container %d on node %s, task: %s", vmid, node, taskID)
 	return taskID, nil
 }
 
@@ -71,7 +70,6 @@ func (c *Client) StartContainer(node string, vmid int) (string, error) {
 		return "", fmt.Errorf("failed to start container %d on node %s: %w", vmid, node, err)
 	}
 
-	logging.Infof("Started container %d on node %s, task: %s", vmid, node, taskID)
 	return taskID, nil
 }
 
@@ -83,7 +81,6 @@ func (c *Client) StopContainer(node string, vmid int) (string, error) {
 		return "", fmt.Errorf("failed to stop container %d on node %s: %w", vmid, node, err)
 	}
 
-	logging.Infof("Stopped container %d on node %s, task: %s", vmid, node, taskID)
 	return taskID, nil
 }
 
@@ -95,7 +92,6 @@ func (c *Client) ShutdownContainer(node string, vmid int) (string, error) {
 		return "", fmt.Errorf("failed to shutdown container %d on node %s: %w", vmid, node, err)
 	}
 
-	logging.Infof("Shutdown container %d on node %s, task: %s", vmid, node, taskID)
 	return taskID, nil
 }
 
@@ -107,7 +103,6 @@ func (c *Client) RebootContainer(node string, vmid int) (string, error) {
 		return "", fmt.Errorf("failed to reboot container %d on node %s: %w", vmid, node, err)
 	}
 
-	logging.Infof("Rebooted container %d on node %s, task: %s", vmid, node, taskID)
 	return taskID, nil
 }
 
@@ -119,7 +114,6 @@ func (c *Client) DeleteContainer(node string, vmid int) (string, error) {
 		return "", fmt.Errorf("failed to delete container %d on node %s: %w", vmid, node, err)
 	}
 
-	logging.Infof("Deleted container %d on node %s, task: %s", vmid, node, taskID)
 	return taskID, nil
 }
 
@@ -140,7 +134,6 @@ func (c *Client) MigrateContainer(node string, vmid int, options MigrationOption
 		return "", fmt.Errorf("failed to migrate container %d from node %s to %s: %w", vmid, node, options.Target, err)
 	}
 
-	logging.Infof("Migrating container %d from node %s to %s, task: %s", vmid, node, options.Target, taskID)
 	return taskID, nil
 }
 
@@ -158,7 +151,6 @@ func (c *Client) CloneContainer(node string, vmid int, newid int, full bool) (st
 		return "", fmt.Errorf("failed to clone container %d to %d on node %s: %w", vmid, newid, node, err)
 	}
 
-	logging.Infof("Cloned container %d to %d on node %s, task: %s", vmid, newid, node, taskID)
 	return taskID, nil
 }
 
@@ -176,7 +168,6 @@ func (c *Client) CreateContainerSnapshot(node string, vmid int, snapname string,
 		return "", fmt.Errorf("failed to create snapshot %s for container %d on node %s: %w", snapname, vmid, node, err)
 	}
 
-	logging.Infof("Created snapshot %s for container %d on node %s, task: %s", snapname, vmid, node, taskID)
 	return taskID, nil
 }
 
@@ -188,7 +179,6 @@ func (c *Client) DeleteContainerSnapshot(node string, vmid int, snapname string)
 		return "", fmt.Errorf("failed to delete snapshot %s for container %d on node %s: %w", snapname, vmid, node, err)
 	}
 
-	logging.Infof("Deleted snapshot %s for container %d on node %s, task: %s", snapname, vmid, node, taskID)
 	return taskID, nil
 }
 

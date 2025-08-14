@@ -11,12 +11,14 @@ import (
 )
 
 type testHandlerConfig struct {
-	includeStorage       bool
-	includeSharedStorage bool
-	includeHAGroups      bool
-	includeHAResources   bool
-	includeNodes         bool
-	includeNodeVMs       bool
+	includeStorage        bool
+	includeSharedStorage  bool
+	includeHAGroups       bool
+	includeHAResources    bool
+	includeNodes          bool
+	includeNodeVMs        bool
+	includeClusterOptions bool
+	crsTagAlreadyExists   bool
 }
 
 func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Server) {
@@ -107,6 +109,26 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 				}`, sharedValue, contentValue)
 			} else {
 				w.Write([]byte(`{"data": []}`))
+			}
+
+		case "/api2/json/cluster/options":
+			switch r.Method {
+			case http.MethodGet:
+				if config.includeClusterOptions {
+					registeredTags := `["production", "development"]`
+					if config.crsTagAlreadyExists {
+						registeredTags = `["production", "development", "crs-skip"]`
+					}
+					fmt.Fprintf(w, `{
+						"data": {
+							"registered-tags": %s
+						}
+					}`, registeredTags)
+				} else {
+					w.Write([]byte(`{"data": {}}`))
+				}
+			case http.MethodPut:
+				w.Write([]byte(`{"data": null}`))
 			}
 
 		default:

@@ -2,11 +2,11 @@ package server
 
 import (
 	"fmt"
-	"log"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/vitalvas/proxmox-cloud-resource-scheduler/internal/logging"
 	"github.com/vitalvas/proxmox-cloud-resource-scheduler/internal/proxmox"
 	"github.com/vitalvas/proxmox-cloud-resource-scheduler/internal/tools"
 )
@@ -14,9 +14,15 @@ import (
 const (
 	crsMaxNodePriority = 1000
 	crsMinNodePriority = 1
+	crsSkipTag         = "crs-skip"
 )
 
 func (s *Server) SetupCRS() error {
+	// Try to register CRS tag, but don't fail if it doesn't work
+	if err := s.ensureCRSTagRegistered(); err != nil {
+		logging.Warnf("Failed to register CRS tag (this may be expected): %v", err)
+	}
+
 	if err := s.SetupVMPin(); err != nil {
 		return fmt.Errorf("setup VM pin: %w", err)
 	}
@@ -55,7 +61,7 @@ func (s *Server) SetupVMPin() error {
 		}
 
 		if !groupExists {
-			log.Println("creating ha group", haGroupPin)
+			logging.Infof("creating ha group %s", haGroupPin)
 
 			_, err := s.proxmox.CreateClusterHAGroup(proxmox.ClusterHAGroup{
 				Group:      haGroupPin,
@@ -104,7 +110,7 @@ func (s *Server) SetupVMPrefer() error {
 		}
 
 		if !groupExists {
-			log.Println("creating ha group", haGroupPrefer)
+			logging.Infof("creating ha group %s", haGroupPrefer)
 
 			var groupNodes []string
 
@@ -174,7 +180,7 @@ func (s *Server) removeVMsFromHAGroup(groupName string) error {
 
 	for _, resource := range resources {
 		if resource.Group == groupName {
-			log.Printf("removing HA resource %s from group %s", resource.SID, groupName)
+			logging.Infof("removing HA resource %s from group %s", resource.SID, groupName)
 			if err := s.proxmox.DeleteClusterHAResource(resource.SID); err != nil {
 				return fmt.Errorf("failed to remove HA resource %s from group %s: %w", resource.SID, groupName, err)
 			}
@@ -201,7 +207,7 @@ func (s *Server) CleanupOrphanedHAGroups() error {
 	for _, group := range haGroups {
 		// Check if group has 'crs-' prefix and is not in actual groups
 		if strings.HasPrefix(group.Group, "crs-") && !actualGroups[group.Group] {
-			log.Printf("found orphaned HA group: %s", group.Group)
+			logging.Infof("found orphaned HA group: %s", group.Group)
 
 			// First, remove all VMs from the group
 			if err := s.removeVMsFromHAGroup(group.Group); err != nil {
@@ -209,12 +215,51 @@ func (s *Server) CleanupOrphanedHAGroups() error {
 			}
 
 			// Then delete the group
-			log.Printf("deleting orphaned HA group: %s", group.Group)
+			logging.Infof("deleting orphaned HA group: %s", group.Group)
 			if err := s.proxmox.DeleteClusterHAGroup(group.Group); err != nil {
 				return fmt.Errorf("failed to delete orphaned HA group %s: %w", group.Group, err)
 			}
 		}
 	}
 
+	return nil
+}
+
+func (s *Server) ensureCRSTagRegistered() error {
+	logging.Debug("Getting cluster options to check registered tags")
+	options, err := s.proxmox.GetClusterOptions()
+	if err != nil {
+		logging.Debugf("Failed to get cluster options (this may be expected on older Proxmox versions): %v", err)
+		return fmt.Errorf("failed to get cluster options: %w", err)
+	}
+
+	logging.Debugf("Current registered tags: %v", options.RegisteredTags)
+
+	// Check if crs-skip tag is already in registered tags array
+	for _, tag := range options.RegisteredTags {
+		if strings.TrimSpace(tag) == crsSkipTag {
+			return nil
+		}
+	}
+
+	// Add crs-skip to registered tags array
+	newRegisteredTags := make([]string, len(options.RegisteredTags))
+	copy(newRegisteredTags, options.RegisteredTags)
+	newRegisteredTags = append(newRegisteredTags, crsSkipTag)
+
+	logging.Debugf("New registered tags array: %v", newRegisteredTags)
+
+	// Update cluster options with new registered tags
+	updateOptions := proxmox.ClusterOptions{
+		RegisteredTags: newRegisteredTags,
+	}
+
+	logging.Debug("Updating cluster options with new registered tags")
+	if err := s.proxmox.UpdateClusterOptions(updateOptions); err != nil {
+		logging.Debugf("Failed to update cluster options (this may be expected on older Proxmox versions or limited permissions): %v", err)
+		return fmt.Errorf("failed to update cluster options with CRS tag: %w", err)
+	}
+
+	logging.Infof("Registered CRS tag '%s' in cluster options", crsSkipTag)
 	return nil
 }

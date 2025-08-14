@@ -9,10 +9,11 @@ import (
 
 func createTestServer() (*Server, *httptest.Server) {
 	return createTestServerWithConfig(testHandlerConfig{
-		includeStorage:       true,
-		includeSharedStorage: false,
-		includeHAGroups:      true,
-		includeNodes:         true,
+		includeStorage:        true,
+		includeSharedStorage:  false,
+		includeHAGroups:       true,
+		includeNodes:          true,
+		includeClusterOptions: true,
 	})
 }
 
@@ -232,4 +233,53 @@ func TestRemoveVMsFromHAGroup(t *testing.T) {
 func TestCRSConstants(t *testing.T) {
 	assert.Equal(t, 1000, crsMaxNodePriority)
 	assert.Equal(t, 1, crsMinNodePriority)
+	assert.Equal(t, "crs-skip", crsSkipTag)
+}
+
+func TestEnsureCRSTagRegistered(t *testing.T) {
+	tests := []struct {
+		name                  string
+		includeClusterOptions bool
+		crsTagAlreadyExists   bool
+		wantErr               bool
+	}{
+		{
+			name:                  "successful tag registration",
+			includeClusterOptions: true,
+			crsTagAlreadyExists:   false,
+			wantErr:               false,
+		},
+		{
+			name:                  "handle missing cluster options",
+			includeClusterOptions: false,
+			crsTagAlreadyExists:   false,
+			wantErr:               false,
+		},
+		{
+			name:                  "tag already exists",
+			includeClusterOptions: true,
+			crsTagAlreadyExists:   true,
+			wantErr:               false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := testHandlerConfig{
+				includeClusterOptions: tt.includeClusterOptions,
+				crsTagAlreadyExists:   tt.crsTagAlreadyExists,
+			}
+
+			testServer, mockServer := createTestServerWithConfig(config)
+			defer mockServer.Close()
+
+			err := testServer.ensureCRSTagRegistered()
+
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
 }

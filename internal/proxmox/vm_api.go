@@ -62,7 +62,6 @@ func (c *Client) CreateVM(node string, vmid int, config VMConfig) (string, error
 		return "", fmt.Errorf("failed to create VM %d on node %s: %w", vmid, node, err)
 	}
 
-	logging.Infof("Created VM %d on node %s, task: %s", vmid, node, taskID)
 	return taskID, nil
 }
 
@@ -74,7 +73,6 @@ func (c *Client) StartVM(node string, vmid int) (string, error) {
 		return "", fmt.Errorf("failed to start VM %d on node %s: %w", vmid, node, err)
 	}
 
-	logging.Infof("Started VM %d on node %s, task: %s", vmid, node, taskID)
 	return taskID, nil
 }
 
@@ -86,7 +84,6 @@ func (c *Client) StopVM(node string, vmid int) (string, error) {
 		return "", fmt.Errorf("failed to stop VM %d on node %s: %w", vmid, node, err)
 	}
 
-	logging.Infof("Stopped VM %d on node %s, task: %s", vmid, node, taskID)
 	return taskID, nil
 }
 
@@ -98,7 +95,6 @@ func (c *Client) ShutdownVM(node string, vmid int) (string, error) {
 		return "", fmt.Errorf("failed to shutdown VM %d on node %s: %w", vmid, node, err)
 	}
 
-	logging.Infof("Shutdown VM %d on node %s, task: %s", vmid, node, taskID)
 	return taskID, nil
 }
 
@@ -110,7 +106,6 @@ func (c *Client) RebootVM(node string, vmid int) (string, error) {
 		return "", fmt.Errorf("failed to reboot VM %d on node %s: %w", vmid, node, err)
 	}
 
-	logging.Infof("Rebooted VM %d on node %s, task: %s", vmid, node, taskID)
 	return taskID, nil
 }
 
@@ -122,7 +117,6 @@ func (c *Client) ResetVM(node string, vmid int) (string, error) {
 		return "", fmt.Errorf("failed to reset VM %d on node %s: %w", vmid, node, err)
 	}
 
-	logging.Infof("Reset VM %d on node %s, task: %s", vmid, node, taskID)
 	return taskID, nil
 }
 
@@ -134,7 +128,6 @@ func (c *Client) DeleteVM(node string, vmid int) (string, error) {
 		return "", fmt.Errorf("failed to delete VM %d on node %s: %w", vmid, node, err)
 	}
 
-	logging.Infof("Deleted VM %d on node %s, task: %s", vmid, node, taskID)
 	return taskID, nil
 }
 
@@ -155,7 +148,6 @@ func (c *Client) MigrateVM(node string, vmid int, options MigrationOptions) (str
 		return "", fmt.Errorf("failed to migrate VM %d from node %s to %s: %w", vmid, node, options.Target, err)
 	}
 
-	logging.Infof("Migrating VM %d from node %s to %s, task: %s", vmid, node, options.Target, taskID)
 	return taskID, nil
 }
 
@@ -173,7 +165,6 @@ func (c *Client) CloneVM(node string, vmid int, newid int, full bool) (string, e
 		return "", fmt.Errorf("failed to clone VM %d to %d on node %s: %w", vmid, newid, node, err)
 	}
 
-	logging.Infof("Cloned VM %d to %d on node %s, task: %s", vmid, newid, node, taskID)
 	return taskID, nil
 }
 
@@ -191,7 +182,6 @@ func (c *Client) CreateVMSnapshot(node string, vmid int, snapname string, descri
 		return "", fmt.Errorf("failed to create snapshot %s for VM %d on node %s: %w", snapname, vmid, node, err)
 	}
 
-	logging.Infof("Created snapshot %s for VM %d on node %s, task: %s", snapname, vmid, node, taskID)
 	return taskID, nil
 }
 
@@ -203,7 +193,6 @@ func (c *Client) DeleteVMSnapshot(node string, vmid int, snapname string) (strin
 		return "", fmt.Errorf("failed to delete snapshot %s for VM %d on node %s: %w", snapname, vmid, node, err)
 	}
 
-	logging.Infof("Deleted snapshot %s for VM %d on node %s, task: %s", snapname, vmid, node, taskID)
 	return taskID, nil
 }
 

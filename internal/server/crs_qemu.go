@@ -2,10 +2,10 @@ package server
 
 import (
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
+	"github.com/vitalvas/proxmox-cloud-resource-scheduler/internal/logging"
 	"github.com/vitalvas/proxmox-cloud-resource-scheduler/internal/proxmox"
 	"github.com/vitalvas/proxmox-cloud-resource-scheduler/internal/tools"
 )
@@ -34,7 +34,7 @@ func (s *Server) SetupCRSQemu() error {
 				continue
 			}
 
-			if strings.Contains(vm.Tags, "crs-skip") {
+			if strings.Contains(vm.Tags, crsSkipTag) {
 				continue
 			}
 
@@ -75,7 +75,7 @@ func (s *Server) SetupCRSQemu() error {
 				return fmt.Errorf("failed to create ha resource for %s: %s", sid, err)
 			}
 
-			log.Println("add ha resource for", sid, vm.Name)
+			logging.Infof("add ha resource for %s %s", sid, vm.Name)
 
 			// Sleep 500ms to avoid overwhelming the Proxmox API
 			time.Sleep(500 * time.Millisecond)

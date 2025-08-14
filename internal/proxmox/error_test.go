@@ -96,6 +96,74 @@ func TestHTTPErrorWithoutAPIError(t *testing.T) {
 	assert.Contains(t, err.Error(), "HTTP 500")
 }
 
+func TestNon2xxStatusCodes(t *testing.T) {
+	tests := []struct {
+		name         string
+		statusCode   int
+		response     string
+		wantError    string
+		expectsError bool
+	}{
+		{
+			name:         "301 redirect with API error",
+			statusCode:   301,
+			response:     `{"error": "Moved permanently"}`,
+			wantError:    "API error 301: Moved permanently",
+			expectsError: true,
+		},
+		{
+			name:         "302 redirect with plain text", 
+			statusCode:   302,
+			response:     `Plain text redirect`,
+			wantError:    "HTTP 302",
+			expectsError: true,
+		},
+		{
+			name:         "304 not modified",
+			statusCode:   304,
+			response:     ``,
+			wantError:    "HTTP 304",
+			expectsError: true,
+		},
+		{
+			name:         "204 no content (should be successful)",
+			statusCode:   204,
+			response:     `{"data": null}`,
+			expectsError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(tt.statusCode)
+				if tt.response != "" {
+					w.Write([]byte(tt.response))
+				}
+			}))
+			defer server.Close()
+
+			config := &Config{
+				Endpoints: []string{server.URL},
+				Auth: AuthConfig{
+					Method:   "token",
+					APIToken: "test@pam!test=12345678-1234-1234-1234-123456789012",
+				},
+			}
+
+			client := NewClient(config)
+			_, err := client.GetNodes()
+			
+			if tt.expectsError {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantError)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
 func TestNetworkError(t *testing.T) {
 	config := &Config{
 		Endpoints: []string{"http://invalid-host:8006"},

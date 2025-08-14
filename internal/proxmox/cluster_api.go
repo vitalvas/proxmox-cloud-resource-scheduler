@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"strings"
 
 	"github.com/vitalvas/proxmox-cloud-resource-scheduler/internal/logging"
 )
@@ -91,7 +92,6 @@ func (c *Client) CreateClusterHAGroup(group ClusterHAGroup) (string, error) {
 		return "", fmt.Errorf("failed to create cluster HA group %s: %w", group.Group, err)
 	}
 
-	logging.Infof("Created cluster HA group %s", group.Group)
 	return group.Group, nil
 }
 
@@ -111,7 +111,6 @@ func (c *Client) UpdateClusterHAGroup(group ClusterHAGroup) error {
 		return fmt.Errorf("failed to update cluster HA group %s: %w", group.Group, err)
 	}
 
-	logging.Infof("Updated cluster HA group %s", group.Group)
 	return nil
 }
 
@@ -122,7 +121,6 @@ func (c *Client) DeleteClusterHAGroup(groupName string) error {
 		return fmt.Errorf("failed to delete cluster HA group %s: %w", groupName, err)
 	}
 
-	logging.Infof("Deleted cluster HA group %s", groupName)
 	return nil
 }
 
@@ -160,7 +158,6 @@ func (c *Client) CreateClusterHAResource(resource ClusterHAResource) (string, er
 		return "", fmt.Errorf("failed to create cluster HA resource %s: %w", resource.SID, err)
 	}
 
-	logging.Infof("Created cluster HA resource %s", resource.SID)
 	return resource.SID, nil
 }
 
@@ -188,7 +185,6 @@ func (c *Client) UpdateClusterHAResource(resource ClusterHAResource) error {
 		return fmt.Errorf("failed to update cluster HA resource %s: %w", resource.SID, err)
 	}
 
-	logging.Infof("Updated cluster HA resource %s", resource.SID)
 	return nil
 }
 
@@ -199,7 +195,6 @@ func (c *Client) DeleteClusterHAResource(sid string) error {
 		return fmt.Errorf("failed to delete cluster HA resource %s: %w", sid, err)
 	}
 
-	logging.Infof("Deleted cluster HA resource %s", sid)
 	return nil
 }
 
@@ -231,6 +226,35 @@ func (c *Client) StopTask(node, upid string) error {
 		return fmt.Errorf("failed to stop task %s on node %s: %w", upid, node, err)
 	}
 
-	logging.Infof("Stopped task %s on node %s", upid, node)
+	return nil
+}
+
+func (c *Client) GetClusterOptions() (*ClusterOptions, error) {
+	var options ClusterOptions
+	if err := c.Get("cluster/options", &options); err != nil {
+		return nil, fmt.Errorf("failed to get cluster options: %w", err)
+	}
+
+	logging.Debug("Retrieved cluster options")
+	return &options, nil
+}
+
+func (c *Client) UpdateClusterOptions(options ClusterOptions) error {
+	data := url.Values{}
+
+	if len(options.RegisteredTags) > 0 {
+		// Convert array to semicolon-separated string for API
+		registeredTagsStr := strings.Join(options.RegisteredTags, ";")
+		data.Set("registered-tags", registeredTagsStr)
+		logging.Debugf("Setting registered-tags parameter to: %s", registeredTagsStr)
+	}
+
+	logging.Debugf("API PUT data: %s", data.Encode())
+
+	if err := c.Put("cluster/options", data, nil); err != nil {
+		logging.Errorf("Failed to update cluster options: %v", err)
+		return fmt.Errorf("failed to update cluster options: %w", err)
+	}
+
 	return nil
 }

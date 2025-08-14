@@ -82,7 +82,6 @@ func (c *Client) ShutdownNode(node string) (string, error) {
 		return "", fmt.Errorf("failed to shutdown node %s: %w", node, err)
 	}
 
-	logging.Infof("Shutdown initiated for node %s", node)
 	return result, nil
 }
 
@@ -96,7 +95,6 @@ func (c *Client) RebootNode(node string) (string, error) {
 		return "", fmt.Errorf("failed to reboot node %s: %w", node, err)
 	}
 
-	logging.Infof("Reboot initiated for node %s", node)
 	return result, nil
 }
 
@@ -107,6 +105,5 @@ func (c *Client) WakeNode(node string) error {
 		return fmt.Errorf("failed to wake node %s: %w", node, err)
 	}
 
-	logging.Infof("Wake-on-LAN sent to node %s", node)
 	return nil
 }

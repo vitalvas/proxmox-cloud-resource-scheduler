@@ -1,6 +1,7 @@
 package proxmox
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -112,7 +113,21 @@ func (c *Client) makeRequest(method, endpoint string, body io.Reader, auth bool)
 		return nil, fmt.Errorf("failed to build URL for endpoint: %s", endpoint)
 	}
 
-	req, err := http.NewRequest(method, url, body)
+	// Read body for logging and create a new reader
+	var bodyBytes []byte
+	var requestBody io.Reader
+	if body != nil {
+		var err error
+		bodyBytes, err = io.ReadAll(body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read request body: %w", err)
+		}
+		requestBody = bytes.NewReader(bodyBytes)
+	} else {
+		requestBody = body
+	}
+
+	req, err := http.NewRequest(method, url, requestBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -127,23 +142,68 @@ func (c *Client) makeRequest(method, endpoint string, body io.Reader, auth bool)
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	}
 
-	logging.Debugf("Making %s request to %s", method, url)
+	// Log request details
+	logging.Debugf("=== HTTP REQUEST ===")
+	logging.Debugf("%s %s", method, url)
+	logging.Debugf("Headers:")
+	for name, values := range req.Header {
+		// Don't log sensitive auth headers
+		if strings.ToLower(name) == "authorization" || strings.ToLower(name) == "cookie" {
+			logging.Debugf("  %s: [REDACTED]", name)
+		} else {
+			logging.Debugf("  %s: %s", name, strings.Join(values, ", "))
+		}
+	}
+	if len(bodyBytes) > 0 {
+		logging.Debugf("Body: %s", string(bodyBytes))
+	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
+		logging.Errorf("Request failed: %v", err)
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
 
-	if resp.StatusCode >= 400 {
-		defer resp.Body.Close()
+	// Log response details
+	logging.Debugf("=== HTTP RESPONSE ===")
+	logging.Debugf("Status: %s", resp.Status)
+	logging.Debugf("Headers:")
+	for name, values := range resp.Header {
+		logging.Debugf("  %s: %s", name, strings.Join(values, ", "))
+	}
 
+	// Read response body for logging
+	respBodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		logging.Errorf("Failed to read response body: %v", err)
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+	resp.Body.Close()
+
+	logging.Debugf("Response Body: %s", string(respBodyBytes))
+
+	// Create new response with readable body
+	resp.Body = io.NopCloser(bytes.NewReader(respBodyBytes))
+
+	// Check for any non-2xx status codes
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		var apiErr APIError
-		if err := json.NewDecoder(resp.Body).Decode(&apiErr); err != nil {
-			return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
+		bodyReader := bytes.NewReader(respBodyBytes)
+		if err := json.NewDecoder(bodyReader).Decode(&apiErr); err != nil {
+			logging.Errorf("Failed to decode API error response: %v", err)
+			return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(respBodyBytes))
 		}
+		
+		// Set status code if not already set in API error
+		if apiErr.Status == 0 {
+			apiErr.Status = resp.StatusCode
+		}
+		
+		logging.Errorf("API Error: %+v", apiErr)
 		return nil, &apiErr
 	}
 
+	logging.Debugf("=== END REQUEST ===")
 	return resp, nil
 }
 
@@ -194,12 +254,17 @@ func (c *Client) Post(endpoint string, data url.Values, result interface{}) erro
 
 func (c *Client) Put(endpoint string, data url.Values, result interface{}) error {
 	var body io.Reader
+	var dataStr string
 	if data != nil {
-		body = strings.NewReader(data.Encode())
+		dataStr = data.Encode()
+		body = strings.NewReader(dataStr)
 	}
+
+	logging.Debugf("PUT %s with data: %s", endpoint, dataStr)
 
 	resp, err := c.makeRequest("PUT", endpoint, body, true)
 	if err != nil {
+		logging.Errorf("PUT request failed for %s: %v", endpoint, err)
 		return err
 	}
 	defer resp.Body.Close()
@@ -214,7 +279,7 @@ func (c *Client) Delete(endpoint string) error {
 	}
 	defer resp.Body.Close()
 
-	return nil
+	return c.parseResponse(resp, nil)
 }
 
 func (c *Client) DeleteWithResponse(endpoint string, result interface{}) error {
@@ -235,6 +300,11 @@ func (c *Client) parseResponse(resp *http.Response, result interface{}) error {
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Handle responses with no content (like 204 No Content)
+	if len(body) == 0 || resp.StatusCode == 204 {
+		return nil
 	}
 
 	var apiResp APIResponse
@@ -273,6 +343,5 @@ func (c *Client) createBackup(resourceType, node string, vmid int, options Backu
 		return "", fmt.Errorf("failed to create backup for %s %d on node %s: %w", resourceType, vmid, node, err)
 	}
 
-	logging.Infof("Created backup for %s %d on node %s, task: %s", resourceType, vmid, node, taskID)
 	return taskID, nil
 }
