@@ -2,15 +2,11 @@ package main
 
 import (
 	"log"
+	"net/http"
 	"runtime"
 
-	"github.com/gin-gonic/gin"
 	"github.com/vitalvas/proxmox-cloud-resource-scheduler/cmd/imds-server/app"
 )
-
-func init() {
-	gin.SetMode(gin.ReleaseMode)
-}
 
 func main() {
 	app := app.New()
@@ -20,7 +16,7 @@ func main() {
 		listenAddress = "127.0.0.1:9999"
 	}
 
-	if err := app.Router.Run(listenAddress); err != nil {
+	if err := http.ListenAndServe(listenAddress, app.Router); err != nil {
 		log.Fatal(err)
 	}
 }

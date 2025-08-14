@@ -1,5 +1,7 @@
 package app
 
-// func (app *App) httpMetadataInstanceIDGet(c *gin.Context) {
+// import "net/http"
+
+// func (app *App) httpMetadataInstanceIDGet(w http.ResponseWriter, r *http.Request) {
 
 // }

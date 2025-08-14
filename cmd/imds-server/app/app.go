@@ -1,9 +1,9 @@
 package app
 
-import "github.com/gin-gonic/gin"
+import "github.com/gorilla/mux"
 
 type App struct {
-	Router *gin.Engine
+	Router *mux.Router
 }
 
 func New() *App {
@@ -14,10 +14,10 @@ func New() *App {
 	return app
 }
 
-func (app *App) newRouter() *gin.Engine {
-	router := gin.Default()
+func (app *App) newRouter() *mux.Router {
+	router := mux.NewRouter()
 
-	// router.GET("/2009-04-04/meta-data/instance-id", app.httpMetadataInstanceIDGet)
+	// router.HandleFunc("/2009-04-04/meta-data/instance-id", app.httpMetadataInstanceIDGet).Methods("GET")
 
 	return router
 }
