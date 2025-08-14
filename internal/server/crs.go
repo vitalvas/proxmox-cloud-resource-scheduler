@@ -24,6 +24,10 @@ func (s *Server) SetupCRS() error {
 		return fmt.Errorf("setup VM prefer: %w", err)
 	}
 
+	if err := s.CleanupOrphanedHAGroups(); err != nil {
+		return fmt.Errorf("cleanup orphaned HA groups: %w", err)
+	}
+
 	return nil
 }
 
@@ -124,6 +128,86 @@ func (s *Server) SetupVMPrefer() error {
 				Restricted: 1,
 			}); err != nil {
 				return fmt.Errorf("failed to create ha group %s: %s", haGroupPrefer, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (s *Server) generateActualHAGroupNames() (map[string]bool, error) {
+	actualGroups := make(map[string]bool)
+
+	nodes, err := s.proxmox.GetNodes()
+	if err != nil {
+		return nil, err
+	}
+
+	// Always generate pin groups for all nodes
+	for _, node := range nodes {
+		pinGroup := tools.GetHAVMPinGroupName(node.Node)
+		actualGroups[pinGroup] = true
+	}
+
+	// Generate prefer groups only if shared storage exists
+	hasSharedStorage, err := s.proxmox.HasSharedStorage()
+	if err != nil {
+		return nil, err
+	}
+
+	if hasSharedStorage {
+		for _, node := range nodes {
+			preferGroup := tools.GetHAVMPreferGroupName(node.Node)
+			actualGroups[preferGroup] = true
+		}
+	}
+
+	return actualGroups, nil
+}
+
+func (s *Server) removeVMsFromHAGroup(groupName string) error {
+	resources, err := s.proxmox.GetClusterHAResources()
+	if err != nil {
+		return err
+	}
+
+	for _, resource := range resources {
+		if resource.Group == groupName {
+			log.Printf("removing HA resource %s from group %s", resource.SID, groupName)
+			if err := s.proxmox.DeleteClusterHAResource(resource.SID); err != nil {
+				return fmt.Errorf("failed to remove HA resource %s from group %s: %w", resource.SID, groupName, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (s *Server) CleanupOrphanedHAGroups() error {
+	actualGroups, err := s.generateActualHAGroupNames()
+	if err != nil {
+		return err
+	}
+
+	haGroups, err := s.proxmox.GetClusterHAGroups()
+	if err != nil {
+		return err
+	}
+
+	for _, group := range haGroups {
+		// Check if group has 'crs-' prefix and is not in actual groups
+		if strings.HasPrefix(group.Group, "crs-") && !actualGroups[group.Group] {
+			log.Printf("found orphaned HA group: %s", group.Group)
+
+			// First, remove all VMs from the group
+			if err := s.removeVMsFromHAGroup(group.Group); err != nil {
+				return fmt.Errorf("failed to remove VMs from group %s: %w", group.Group, err)
+			}
+
+			// Then delete the group
+			log.Printf("deleting orphaned HA group: %s", group.Group)
+			if err := s.proxmox.DeleteClusterHAGroup(group.Group); err != nil {
+				return fmt.Errorf("failed to delete orphaned HA group %s: %w", group.Group, err)
 			}
 		}
 	}

@@ -16,11 +16,12 @@ func TestRunPeriodic(t *testing.T) {
 			name: "successful periodic run",
 			setupServer: func() *Server {
 				srv, _ := createTestServerWithConfig(testHandlerConfig{
-					includeStorage:     true,
-					includeHAGroups:    true,
-					includeNodes:       true,
-					includeHAResources: true,
-					includeNodeVMs:     true,
+					includeStorage:       true,
+					includeSharedStorage: false,
+					includeHAGroups:      true,
+					includeNodes:         true,
+					includeHAResources:   true,
+					includeNodeVMs:       true,
 				})
 				return srv
 			},

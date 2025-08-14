@@ -1,19 +1,22 @@
 package server
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 
 	"github.com/vitalvas/proxmox-cloud-resource-scheduler/internal/consul"
 	"github.com/vitalvas/proxmox-cloud-resource-scheduler/internal/proxmox"
 )
 
 type testHandlerConfig struct {
-	includeStorage     bool
-	includeHAGroups    bool
-	includeHAResources bool
-	includeNodes       bool
-	includeNodeVMs     bool
+	includeStorage      bool
+	includeSharedStorage bool
+	includeHAGroups     bool
+	includeHAResources  bool
+	includeNodes        bool
+	includeNodeVMs      bool
 }
 
 func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Server) {
@@ -86,20 +89,38 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 
 		case "/api2/json/storage":
 			if config.includeStorage {
-				w.Write([]byte(`{
+				sharedValue := 0
+				contentValue := "vztmpl,backup,iso"
+				if config.includeSharedStorage {
+					sharedValue = 1
+					contentValue = "images,vztmpl,backup,iso"
+				}
+				fmt.Fprintf(w, `{
 					"data": [
 						{
 							"storage": "local",
 							"type": "dir",
-							"shared": 0
+							"shared": %d,
+							"content": "%s"
 						}
 					]
-				}`))
+				}`, sharedValue, contentValue)
 			} else {
 				w.Write([]byte(`{"data": []}`))
 			}
 
 		default:
+			// Handle DELETE operations for specific HA groups and resources
+			if r.Method == http.MethodDelete {
+				if strings.HasPrefix(r.URL.Path, "/api2/json/cluster/ha/groups/") {
+					w.Write([]byte(`{"data": null}`))
+					return
+				}
+				if strings.HasPrefix(r.URL.Path, "/api2/json/cluster/ha/resources/") {
+					w.Write([]byte(`{"data": null}`))
+					return
+				}
+			}
 			w.WriteHeader(http.StatusNotFound)
 		}
 	}))
