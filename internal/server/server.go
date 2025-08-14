@@ -1,4 +1,4 @@
-package app
+package server
 
 import (
 	"context"
@@ -12,12 +12,12 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-type App struct {
+type Server struct {
 	proxmox *proxmox.Client
 	consul  *consul.Consul
 }
 
-func New() (*App, error) {
+func New() (*Server, error) {
 	consul, err := consul.New()
 	if err != nil {
 		return nil, err
@@ -48,30 +48,25 @@ func New() (*App, error) {
 
 	pveClient := proxmox.NewClient(config)
 
-	return &App{
+	return &Server{
 		consul:  consul,
 		proxmox: pveClient,
 	}, nil
 }
 
-func Execute() {
-	app, err := New()
-	if err != nil {
-		log.Fatal(err)
-	}
+func (s *Server) Run(ctx context.Context) error {
+	group, groupCtx := errgroup.WithContext(ctx)
 
-	group, ctx := errgroup.WithContext(context.Background())
-
-	if err := app.runPeriodic(); err != nil {
-		log.Fatal(err)
+	if err := s.runPeriodic(); err != nil {
+		return err
 	}
 
 	group.Go(func() error {
 		run := func(_ context.Context) error {
-			return app.runPeriodic()
+			return s.runPeriodic()
 		}
 
-		err := xcmd.PeriodicRun(ctx, run, time.Duration(periodicTime)*time.Second)
+		err := xcmd.PeriodicRun(groupCtx, run, time.Duration(periodicTime)*time.Second)
 		if err != nil {
 			log.Println(err)
 		}
@@ -80,14 +75,12 @@ func Execute() {
 	})
 
 	group.Go(func() error {
-		xcmd.WaitInterrupted(ctx)
+		xcmd.WaitInterrupted(groupCtx)
 		log.Println("shutting down...")
 		os.Exit(0)
 
 		return nil
 	})
 
-	if err := group.Wait(); err != nil {
-		log.Fatal(err)
-	}
+	return group.Wait()
 }

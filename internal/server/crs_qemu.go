@@ -1,4 +1,4 @@
-package app
+package server
 
 import (
 	"fmt"
@@ -9,13 +9,13 @@ import (
 	"github.com/vitalvas/proxmox-cloud-resource-scheduler/internal/tools"
 )
 
-func (app *App) SetupCRSQemu() error {
-	resources, err := app.proxmox.GetClusterHAResources()
+func (s *Server) SetupCRSQemu() error {
+	resources, err := s.proxmox.GetClusterHAResources()
 	if err != nil {
 		return err
 	}
 
-	nodeList, err := app.proxmox.GetNodes()
+	nodeList, err := s.proxmox.GetNodes()
 	if err != nil {
 		return err
 	}
@@ -23,7 +23,7 @@ func (app *App) SetupCRSQemu() error {
 	for _, node := range nodeList {
 		haGroupPin := tools.GetHAPinGroupName(node.Node)
 
-		vmList, err := app.proxmox.GetNodeVMs(node.Node)
+		vmList, err := s.proxmox.GetNodeVMs(node.Node)
 		if err != nil {
 			return err
 		}
@@ -70,7 +70,7 @@ func (app *App) SetupCRSQemu() error {
 				data.State = "ignored"
 			}
 
-			if _, err := app.proxmox.CreateClusterHAResource(data); err != nil {
+			if _, err := s.proxmox.CreateClusterHAResource(data); err != nil {
 				return fmt.Errorf("failed to create ha resource for %s: %s", sid, err)
 			}
 

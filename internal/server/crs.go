@@ -1,4 +1,4 @@
-package app
+package server
 
 import (
 	"fmt"
@@ -15,18 +15,18 @@ const (
 	crsMinNodePriority = 1
 )
 
-func (app *App) SetupCRS() error {
-	hasSharedStorage, err := app.proxmox.HasSharedStorage()
+func (s *Server) SetupCRS() error {
+	hasSharedStorage, err := s.proxmox.HasSharedStorage()
 	if err != nil {
 		return err
 	}
 
-	haGroups, err := app.proxmox.GetClusterHAGroups()
+	haGroups, err := s.proxmox.GetClusterHAGroups()
 	if err != nil {
 		return err
 	}
 
-	nodes, err := app.proxmox.GetNodes()
+	nodes, err := s.proxmox.GetNodes()
 	if err != nil {
 		return err
 	}
@@ -59,7 +59,7 @@ func (app *App) SetupCRS() error {
 		if !createdPin {
 			log.Println("creating ha group", haGroupPin)
 
-			_, err := app.proxmox.CreateClusterHAGroup(proxmox.ClusterHAGroup{
+			_, err := s.proxmox.CreateClusterHAGroup(proxmox.ClusterHAGroup{
 				Group:      haGroupPin,
 				Nodes:      fmt.Sprintf("%s:%d", row.Node, crsMaxNodePriority),
 				NoFailback: 1,
@@ -89,7 +89,7 @@ func (app *App) SetupCRS() error {
 
 			sort.Strings(groupNodes)
 
-			if _, err := app.proxmox.CreateClusterHAGroup(proxmox.ClusterHAGroup{
+			if _, err := s.proxmox.CreateClusterHAGroup(proxmox.ClusterHAGroup{
 				Group:      haGroupPrefer,
 				Nodes:      strings.Join(groupNodes, ","),
 				NoFailback: 1,

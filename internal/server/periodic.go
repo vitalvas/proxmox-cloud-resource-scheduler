@@ -1,4 +1,4 @@
-package app
+package server
 
 import (
 	"fmt"
@@ -6,12 +6,12 @@ import (
 
 const periodicTime = 10
 
-func (app *App) runPeriodic() error {
-	if err := app.SetupCRS(); err != nil {
+func (s *Server) runPeriodic() error {
+	if err := s.SetupCRS(); err != nil {
 		return fmt.Errorf("setup CRS: %w", err)
 	}
 
-	if err := app.SetupCRSQemu(); err != nil {
+	if err := s.SetupCRSQemu(); err != nil {
 		return fmt.Errorf("setup CRS QEMU: %w", err)
 	}
 
