@@ -29,6 +29,7 @@ type testHandlerConfig struct {
 	includeOutdatedHAGroups      bool
 	includeCorrectHAGroups       bool
 	includeSharedStorageVM       bool // Include VM 200 with shared storage config
+	includeRunningDisabledVM     bool // Include VM 106 with running status but disabled HA
 }
 
 //nolint:gocyclo // Test helper function with many mock scenarios is acceptable
@@ -184,6 +185,18 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 							"node": "pve1"
 						}`)
 					}
+					if config.includeRunningDisabledVM {
+						resources = append(resources, `{
+							"sid": "vm:110",
+							"state": "disabled",
+							"status": "disabled",
+							"crm-state": "disabled",
+							"request": "disabled",
+							"group": "crs-vm-pin-pve1",
+							"type": "vm",
+							"node": "pve1"
+						}`)
+					}
 					fmt.Fprintf(w, `{"data": [%s]}`, strings.Join(resources, ","))
 				} else {
 					w.Write([]byte(`{"data": []}`))
@@ -263,6 +276,26 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 							"tags": ""
 						}`
 				}
+				if config.includeDisabledHAResources {
+					vmList += `,
+						{
+							"vmid": 105,
+							"name": "disabled-vm",
+							"status": "stopped",
+							"template": 0,
+							"tags": ""
+						}`
+				}
+				if config.includeRunningDisabledVM {
+					vmList += `,
+						{
+							"vmid": 110,
+							"name": "running-disabled-vm",
+							"status": "running",
+							"template": 0,
+							"tags": ""
+						}`
+				}
 				vmList += `
 					]`
 				fmt.Fprintf(w, `{"data": %s}`, vmList)
@@ -324,7 +357,7 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 			}
 
 		case "/api2/json/cluster/resources":
-			if config.includeClusterResources || config.includeErrorHAResources || config.includeDisabledHAResources || config.includeCriticalVMResources {
+			if config.includeClusterResources || config.includeErrorHAResources || config.includeDisabledHAResources || config.includeCriticalVMResources || config.includeRunningDisabledVM {
 				var resources []string
 				if config.includeClusterResources {
 					resources = append(resources, `{
@@ -402,6 +435,18 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 						"status": "stopped",
 						"hastate": "disabled",
 						"tags": "crs-critical"
+					}`)
+				}
+				if config.includeRunningDisabledVM {
+					resources = append(resources, `{
+						"id": "vm/110",
+						"type": "qemu",
+						"vmid": 110,
+						"name": "running-disabled-vm",
+						"node": "pve1",
+						"status": "running",
+						"hastate": "disabled",
+						"tags": ""
 					}`)
 				}
 				// Add VM with crs-skip tag that would normally be processed
@@ -529,6 +574,32 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 								"name": "no-disk-vm",
 								"memory": "512",
 								"disks": {}
+							}
+						}`))
+						return
+					}
+					if strings.Contains(r.URL.Path, "/qemu/105/config") {
+						// VM with disabled HA resource
+						w.Write([]byte(`{
+							"data": {
+								"name": "disabled-vm",
+								"memory": "1024",
+								"disks": {
+									"virtio0": "local:vm-105-disk-0.qcow2"
+								}
+							}
+						}`))
+						return
+					}
+					if strings.Contains(r.URL.Path, "/qemu/110/config") {
+						// Running VM with disabled HA resource
+						w.Write([]byte(`{
+							"data": {
+								"name": "running-disabled-vm",
+								"memory": "2048",
+								"disks": {
+									"virtio0": "local:vm-110-disk-0.qcow2"
+								}
 							}
 						}`))
 						return

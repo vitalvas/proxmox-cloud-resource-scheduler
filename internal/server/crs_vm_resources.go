@@ -51,16 +51,36 @@ func (s *Server) SetupVMHAResources() error {
 			sid := fmt.Sprintf("%s:%d", haResourceType, vm.VMID)
 
 			// Check if VM already has HA resource
-			haveResource := false
+			var existingResource *proxmox.ClusterHAResource
 			for _, resource := range resources {
 				if resource.SID == sid {
-					haveResource = true
+					existingResource = &resource
 					break
 				}
 			}
 
-			if haveResource {
-				logging.Debugf("VM %d (%s) already has HA resource, skipping", vm.VMID, vm.Name)
+			if existingResource != nil {
+				// Check if existing resource is disabled and needs to be started
+				if existingResource.State == haStateDisabled {
+					// Always switch disabled HA resources to 'started' state
+					// Proxmox stops VMs when HA resource is disabled, so we want to re-enable them
+					newState := haStateStarted
+
+					logging.Infof("Updating disabled HA resource for VM %d (%s) from 'disabled' to '%s'", vm.VMID, vm.Name, newState)
+
+					// Update the HA resource state
+					updatedResource := *existingResource
+					updatedResource.State = newState
+
+					if err := s.proxmox.UpdateClusterHAResource(updatedResource); err != nil {
+						return fmt.Errorf("failed to update HA resource state for %s (%s): %w", sid, vm.Name, err)
+					}
+
+					logging.Infof("Successfully updated HA resource for VM %d (%s) from 'disabled' to '%s'", vm.VMID, vm.Name, newState)
+					createdCount++ // Count as a change
+				} else {
+					logging.Debugf("VM %d (%s) already has HA resource in state '%s', skipping", vm.VMID, vm.Name, existingResource.State)
+				}
 				continue
 			}
 
@@ -106,9 +126,9 @@ func (s *Server) SetupVMHAResources() error {
 	}
 
 	if createdCount > 0 {
-		logging.Infof("Created %d new HA resources for VMs", createdCount)
+		logging.Infof("Created or updated %d HA resources for VMs", createdCount)
 	} else {
-		logging.Debug("No new HA resources needed for VMs")
+		logging.Debug("No HA resource changes needed for VMs")
 	}
 
 	return nil

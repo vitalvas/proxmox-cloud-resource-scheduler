@@ -386,3 +386,78 @@ func TestCDROMStorageConsideration(t *testing.T) {
 		assert.True(t, allShared, "Should return true because all storage devices including CD-ROM are on shared storage")
 	})
 }
+
+func TestSetupVMHAResourcesUpdatesDisabledResources(t *testing.T) {
+	t.Run("should update disabled HA resources to appropriate state", func(t *testing.T) {
+		config := testHandlerConfig{
+			includeHAResources:         true, // Include existing HA resources
+			includeDisabledHAResources: true, // Include disabled HA resources
+			includeNodes:               true,
+			includeNodeVMs:             true,
+			includeVMConfig:            true,
+			includeStorage:             true,
+		}
+
+		testServer, mockServer := createTestServerWithConfig(config)
+		defer mockServer.Close()
+
+		// This should update the disabled HA resource (VM 105) to started state
+		err := testServer.SetupVMHAResources()
+		assert.NoError(t, err)
+	})
+
+	t.Run("should skip HA resources that are already in correct state", func(t *testing.T) {
+		config := testHandlerConfig{
+			includeHAResources: true, // Include existing HA resources (VM 100, 102 in started state)
+			includeNodes:       true,
+			includeNodeVMs:     true,
+			includeVMConfig:    true,
+			includeStorage:     true,
+		}
+
+		testServer, mockServer := createTestServerWithConfig(config)
+		defer mockServer.Close()
+
+		// This should skip VMs that already have HA resources in correct state
+		err := testServer.SetupVMHAResources()
+		assert.NoError(t, err)
+	})
+}
+
+func TestSetupVMHAResourcesUpdatesDisabledToStarted(t *testing.T) {
+	t.Run("should update disabled HA resource to started for running VM", func(t *testing.T) {
+		config := testHandlerConfig{
+			includeHAResources:       true, // Include existing HA resources
+			includeRunningDisabledVM: true, // Include VM 110 with running status but disabled HA
+			includeNodes:             true,
+			includeNodeVMs:           true,
+			includeVMConfig:          true,
+			includeStorage:           true,
+		}
+
+		testServer, mockServer := createTestServerWithConfig(config)
+		defer mockServer.Close()
+
+		// This should update VM 110's disabled HA resource to 'started' state since VM is running
+		err := testServer.SetupVMHAResources()
+		assert.NoError(t, err)
+	})
+
+	t.Run("should update disabled HA resource to started for stopped VM", func(t *testing.T) {
+		config := testHandlerConfig{
+			includeHAResources:         true, // Include existing HA resources
+			includeDisabledHAResources: true, // Include VM 105 with stopped status but disabled HA
+			includeNodes:               true,
+			includeNodeVMs:             true,
+			includeVMConfig:            true,
+			includeStorage:             true,
+		}
+
+		testServer, mockServer := createTestServerWithConfig(config)
+		defer mockServer.Close()
+
+		// This should update VM 105's disabled HA resource to 'started' state (Proxmox always stops VMs when HA is disabled)
+		err := testServer.SetupVMHAResources()
+		assert.NoError(t, err)
+	})
+}
