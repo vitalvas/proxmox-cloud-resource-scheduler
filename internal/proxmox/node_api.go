@@ -35,6 +35,13 @@ func (c *Client) GetNodeVMs(node string) ([]VM, error) {
 		return nil, fmt.Errorf("failed to get VMs for node %s: %w", node, err)
 	}
 
+	// Ensure the Node field is populated for each VM since the API response may not include it
+	for i := range vms {
+		if vms[i].Node == "" {
+			vms[i].Node = node
+		}
+	}
+
 	logging.Debugf("Retrieved %d VMs for node %s", len(vms), node)
 	return vms, nil
 }

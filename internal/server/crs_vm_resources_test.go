@@ -1,9 +1,11 @@
 package server
 
 import (
+	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSetupVMHAResources(t *testing.T) {
@@ -176,6 +178,16 @@ func TestAreAllVMDisksShared(t *testing.T) {
 			expected:             true,
 			wantErr:              false,
 		},
+		{
+			name: "disks with empty CD-ROM should ignore none storage",
+			disks: map[string]string{
+				"virtio0": "shared-storage:vm-100-disk-0,size=32G",
+				"ide2":    "none,media=cdrom", // Empty CD-ROM should be ignored
+			},
+			includeSharedStorage: true,
+			expected:             true, // Should be true because only virtio0 counts (all shared)
+			wantErr:              false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -269,6 +281,11 @@ func TestExtractStorageFromDiskConfig(t *testing.T) {
 			name:       "Config without colon",
 			diskConfig: "invalid-config",
 			expected:   "invalid-config",
+		},
+		{
+			name:       "CD-ROM with no media (none storage)",
+			diskConfig: "none,media=cdrom",
+			expected:   "",
 		},
 	}
 
@@ -460,4 +477,135 @@ func TestSetupVMHAResourcesUpdatesDisabledToStarted(t *testing.T) {
 		err := testServer.SetupVMHAResources()
 		assert.NoError(t, err)
 	})
+}
+
+func TestDetermineVMHAGroupWithHostPCI(t *testing.T) {
+	config := testHandlerConfig{
+		includeVMConfig:      true,
+		includeStorage:       true,
+		includeSharedStorage: true,
+		includeVMWithHostPCI: true,
+	}
+	testServer, mockServer := createTestServerWithConfig(config)
+	defer mockServer.Close()
+
+	t.Run("VM with hostpci devices should use pin group regardless of storage", func(t *testing.T) {
+		// VM 400 has all disks on shared storage but also has hostpci devices
+		haGroup, err := testServer.determineVMHAGroup("pve1", 400)
+		assert.NoError(t, err)
+		assert.Equal(t, "crs-vm-pin-pve1", haGroup, "VM with hostpci devices should be assigned to pin group even with shared storage")
+	})
+
+	t.Run("VM config should properly parse hostpci devices", func(t *testing.T) {
+		// Test that our custom unmarshaling correctly captures hostpci devices
+		vmConfig, err := testServer.proxmox.GetVMConfig("pve1", 400)
+		assert.NoError(t, err)
+		assert.NotNil(t, vmConfig.HostPCI, "HostPCI map should be initialized")
+		assert.Len(t, vmConfig.HostPCI, 2, "Should detect 2 hostpci devices")
+		assert.Equal(t, "01:00.0,pcie=1", vmConfig.HostPCI["hostpci0"])
+		assert.Equal(t, "02:00.0,rombar=0", vmConfig.HostPCI["hostpci1"])
+
+		// Also verify that disks are still captured correctly
+		assert.NotNil(t, vmConfig.Disks, "Disks map should be initialized")
+		assert.Equal(t, "shared-storage:vm-400-disk-0,size=50G", vmConfig.Disks["virtio0"])
+	})
+}
+
+func TestDetermineVMHAGroupWithEmptyCDROM(t *testing.T) {
+	config := testHandlerConfig{
+		includeVMConfig:         true,
+		includeStorage:          true,
+		includeSharedStorage:    false, // Local storage only
+		includeVMWithEmptyCDROM: true,
+	}
+	testServer, mockServer := createTestServerWithConfig(config)
+	defer mockServer.Close()
+
+	t.Run("VM with empty CD-ROM should not cause storage lookup warning", func(t *testing.T) {
+		// VM 401 has local storage and empty CD-ROM (none,media=cdrom)
+		haGroup, err := testServer.determineVMHAGroup("pve1", 401)
+		assert.NoError(t, err)
+		assert.Equal(t, "crs-vm-pin-pve1", haGroup, "VM with local storage should be assigned to pin group")
+	})
+
+	t.Run("VM config should properly handle empty CD-ROM", func(t *testing.T) {
+		// Test that our storage analysis correctly handles "none,media=cdrom"
+		vmConfig, err := testServer.proxmox.GetVMConfig("pve1", 401)
+		assert.NoError(t, err)
+		assert.NotNil(t, vmConfig.Disks, "Disks map should be initialized")
+		assert.Equal(t, "local:vm-401-disk-0.qcow2", vmConfig.Disks["virtio0"])
+		assert.Equal(t, "none,media=cdrom", vmConfig.Disks["ide2"])
+
+		// Test that extractStorageFromDiskConfig handles "none" correctly
+		storageName := testServer.extractStorageFromDiskConfig("none,media=cdrom")
+		assert.Equal(t, "", storageName, "Should return empty string for 'none,media=cdrom'")
+	})
+
+	t.Run("VM with empty CD-ROM should be handled correctly in storage analysis", func(t *testing.T) {
+		// Test that areAllVMDisksShared correctly ignores "none" storage
+		disks := map[string]string{
+			"virtio0": "local:vm-401-disk-0.qcow2",
+			"ide2":    "none,media=cdrom",
+		}
+
+		allShared, err := testServer.areAllVMDisksShared(disks)
+		assert.NoError(t, err)
+		assert.False(t, allShared, "Should return false because virtio0 is on local storage (ignoring none CD-ROM)")
+	})
+}
+
+func TestDetermineVMHAGroupWithSCSIHW(t *testing.T) {
+	tests := []struct {
+		name          string
+		setupFunc     func() (*Server, *httptest.Server)
+		vmid          int
+		expectedGroup string
+		expectedError bool
+		description   string
+	}{
+		{
+			name: "VM with scsihw controller should not treat it as disk storage",
+			setupFunc: func() (*Server, *httptest.Server) {
+				return createTestServerWithConfig(testHandlerConfig{
+					includeVMConfig:      true,
+					includeStorage:       true,
+					includeSharedStorage: false, // local storage only
+					includeVMWithSCSIHW:  true,
+				})
+			},
+			vmid:          402,
+			expectedGroup: "crs-vm-pin-pve1", // should be pin group because scsi0 is on local storage
+			expectedError: false,
+			description:   "scsihw field should be excluded from disk analysis",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server, httpServer := tt.setupFunc()
+			defer httpServer.Close()
+
+			group, err := server.determineVMHAGroup("pve1", tt.vmid)
+
+			if tt.expectedError {
+				assert.Error(t, err, tt.description)
+			} else {
+				assert.NoError(t, err, tt.description)
+				assert.Equal(t, tt.expectedGroup, group, tt.description)
+			}
+
+			// Additional verification: check that scsihw is not captured as a disk
+			vmConfig, configErr := server.proxmox.GetVMConfig("pve1", tt.vmid)
+			require.NoError(t, configErr, "Should be able to get VM config")
+
+			// Verify scsihw is not in the disks map
+			_, scsihwInDisks := vmConfig.Disks["scsihw"]
+			assert.False(t, scsihwInDisks, "scsihw should not be captured as a disk device")
+
+			// Verify scsi0 IS in the disks map
+			scsi0Value, scsi0InDisks := vmConfig.Disks["scsi0"]
+			assert.True(t, scsi0InDisks, "scsi0 should be captured as a disk device")
+			assert.Equal(t, "local:vm-402-disk-0,size=32G", scsi0Value, "scsi0 disk config should match expected")
+		})
+	}
 }

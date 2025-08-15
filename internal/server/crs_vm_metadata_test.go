@@ -211,6 +211,22 @@ func TestDetachNonSharedCDROMs(t *testing.T) {
 		detached := testServer.detachNonSharedCDROMs("pve1", 201) // VM 201 has no CD-ROM
 		assert.False(t, detached, "Should not detach anything when no CD-ROMs present")
 	})
+
+	t.Run("should handle VMs with empty CD-ROM (none storage)", func(t *testing.T) {
+		config := testHandlerConfig{
+			includeClusterResources: true,
+			includeVMConfig:         true,
+			includeStorage:          true,
+			includeVMWithEmptyCDROM: true,
+		}
+
+		testServer, mockServer := createTestServerWithConfig(config)
+		defer mockServer.Close()
+
+		// Test with VM that has empty CD-ROM (none,media=cdrom)
+		detached := testServer.detachNonSharedCDROMs("pve1", 401) // VM 401 has empty CD-ROM
+		assert.False(t, detached, "Should not detach empty CD-ROM drives with no media")
+	})
 }
 
 func TestIsCDROMEntry(t *testing.T) {
@@ -230,6 +246,7 @@ func TestIsCDROMEntry(t *testing.T) {
 		{"Regular scsi disk", "scsi0", "shared-storage:vm-100-disk-1,size=50G", false},
 		{"IDE disk without CD-ROM markers", "ide0", "local:vm-100-disk-2.qcow2", false},
 		{"IDE with ISO but no media=cdrom", "ide3", "local:iso/test.iso", true}, // Still considered CD-ROM due to .iso
+		{"CD-ROM with no media inserted", "ide2", "none,media=cdrom", true},
 		{"Network interface", "net0", "virtio=XX:XX:XX:XX:XX:XX,bridge=vmbr0", false},
 		{"Empty disk value", "ide2", "", false},
 	}

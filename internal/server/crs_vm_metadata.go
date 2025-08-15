@@ -173,6 +173,11 @@ func (s *Server) detachNonSharedCDROMs(node string, vmid int) bool {
 			// Extract storage name from disk configuration
 			storageName := s.extractStorageFromDiskConfig(diskValue)
 			if storageName == "" {
+				// Skip CD-ROM devices with no media (none,media=cdrom) - these don't need detachment
+				if strings.HasPrefix(diskValue, "none,") {
+					logging.Debugf("Skipping CD-ROM device %s with no media: %s", diskKey, diskValue)
+					continue
+				}
 				logging.Warnf("Could not extract storage name from CD-ROM config: %s=%s", diskKey, diskValue)
 				continue
 			}

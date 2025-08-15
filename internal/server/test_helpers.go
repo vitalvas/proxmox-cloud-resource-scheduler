@@ -33,6 +33,12 @@ type testHandlerConfig struct {
 	includeLongRunningVMs        bool // Include VMs with uptime > 24h
 	includeLongRunningVMHARes    bool // Include HA resource for VM 111 (long-running)
 	includeLongRunningVMInPin    bool // Include VM 111 in pin group (vs prefer)
+	includeNodeMaintenanceMode   bool // Include pve2 in maintenance mode
+	includeMaintenanceVMs        bool // Include VMs that need migration from maintenance node
+	includeAllNodesInMaintenance bool // All nodes in maintenance mode
+	includeVMWithHostPCI         bool // Include VM with hostpci devices
+	includeVMWithEmptyCDROM      bool // Include VM with CD-ROM that has no media (none)
+	includeVMWithSCSIHW          bool // Include VM with scsihw controller type
 }
 
 //nolint:gocyclo // Test helper function with many mock scenarios is acceptable
@@ -216,6 +222,28 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 							"node": "pve1"
 						}`, haGroup))
 					}
+					if config.includeMaintenanceVMs {
+						// Add HA resources for VMs on maintenance node
+						resources = append(resources, `{
+							"sid": "vm:300",
+							"state": "stopped",
+							"status": "stopped",
+							"crm-state": "stopped",
+							"request": "stopped",
+							"group": "crs-vm-prefer-pve2",
+							"type": "vm",
+							"node": "pve2"
+						}`, `{
+							"sid": "vm:301",
+							"state": "started",
+							"status": "started",
+							"crm-state": "started",
+							"request": "started",
+							"group": "crs-vm-prefer-pve2",
+							"type": "vm",
+							"node": "pve2"
+						}`)
+					}
 					fmt.Fprintf(w, `{"data": [%s]}`, strings.Join(resources, ","))
 				} else {
 					w.Write([]byte(`{"data": []}`))
@@ -226,8 +254,34 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 
 		case "/api2/json/nodes":
 			if config.includeNodes {
-				if config.includeMultipleNodes {
+				switch {
+				case config.includeAllNodesInMaintenance:
+					// All nodes in maintenance
 					w.Write([]byte(`{
+						"data": [
+							{
+								"node": "pve1",
+								"status": "maintenance",
+								"type": "node"
+							},
+							{
+								"node": "pve2",
+								"status": "maintenance",
+								"type": "node"
+							},
+							{
+								"node": "pve3",
+								"status": "maintenance",
+								"type": "node"
+							}
+						]
+					}`))
+				case config.includeMultipleNodes:
+					pve2Status := "online"
+					if config.includeNodeMaintenanceMode {
+						pve2Status = "maintenance"
+					}
+					fmt.Fprintf(w, `{
 						"data": [
 							{
 								"node": "pve1",
@@ -236,7 +290,7 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 							},
 							{
 								"node": "pve2",
-								"status": "online",
+								"status": "%s",
 								"type": "node"
 							},
 							{
@@ -245,8 +299,8 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 								"type": "node"
 							}
 						]
-					}`))
-				} else {
+					}`, pve2Status)
+				default:
 					w.Write([]byte(`{
 						"data": [
 							{
@@ -325,9 +379,68 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 							"tags": ""
 						}`
 				}
+				if config.includeVMWithEmptyCDROM {
+					vmList += `,
+						{
+							"vmid": 401,
+							"name": "empty-cdrom-vm",
+							"status": "running",
+							"template": 0,
+							"tags": ""
+						}`
+				}
+				if config.includeVMWithSCSIHW {
+					vmList += `,
+						{
+							"vmid": 402,
+							"name": "scsihw-vm",
+							"status": "running",
+							"template": 0,
+							"tags": ""
+						}`
+				}
 				vmList += `
 					]`
 				fmt.Fprintf(w, `{"data": %s}`, vmList)
+			} else {
+				w.Write([]byte(`{"data": []}`))
+			}
+
+		case "/api2/json/nodes/pve2/qemu":
+			if config.includeNodeVMs && config.includeMaintenanceVMs {
+				// VMs on maintenance node pve2 that need migration
+				w.Write([]byte(`{
+					"data": [
+						{
+							"vmid": 300,
+							"name": "stopped-prefer-vm",
+							"status": "stopped",
+							"template": 0,
+							"tags": ""
+						},
+						{
+							"vmid": 301,
+							"name": "running-prefer-vm",
+							"status": "running",
+							"template": 0,
+							"tags": ""
+						},
+						{
+							"vmid": 302,
+							"name": "template-shared",
+							"status": "stopped",
+							"template": 1,
+							"tags": ""
+						},
+						{
+							"vmid": 303,
+							"name": "skip-vm",
+							"status": "stopped",
+							"template": 0,
+							"tags": "crs-skip"
+						}
+					]
+				}`))
 			} else {
 				w.Write([]byte(`{"data": []}`))
 			}
@@ -491,6 +604,45 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 						"tags": ""
 					}`)
 				}
+				if config.includeMaintenanceVMs {
+					resources = append(resources, `{
+						"id": "vm/300",
+						"type": "qemu",
+						"vmid": 300,
+						"name": "stopped-prefer-vm",
+						"node": "pve2",
+						"status": "stopped",
+						"hastate": "stopped",
+						"tags": ""
+					}`, `{
+						"id": "vm/301",
+						"type": "qemu",
+						"vmid": 301,
+						"name": "running-prefer-vm",
+						"node": "pve2",
+						"status": "running",
+						"hastate": "started",
+						"tags": ""
+					}`, `{
+						"id": "vm/302",
+						"type": "qemu",
+						"vmid": 302,
+						"name": "template-shared",
+						"node": "pve2",
+						"status": "stopped",
+						"hastate": "started",
+						"tags": ""
+					}`, `{
+						"id": "vm/303",
+						"type": "qemu",
+						"vmid": 303,
+						"name": "skip-vm",
+						"node": "pve2",
+						"status": "stopped",
+						"hastate": "started",
+						"tags": "crs-skip"
+					}`)
+				}
 				// Add VM with crs-skip tag that would normally be processed
 				resources = append(resources, `{
 					"id": "vm/107",
@@ -520,6 +672,65 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 					"hastate": "disabled",
 					"tags": "crs-skip;crs-critical"
 				}`)
+
+				// Add node resources to cluster resources
+				if config.includeNodes || config.includeMultipleNodes || config.includeNodeMaintenanceMode || config.includeAllNodesInMaintenance {
+					switch {
+					case config.includeAllNodesInMaintenance:
+						resources = append(resources, `{
+							"id": "node/pve1",
+							"type": "node",
+							"node": "pve1",
+							"status": "online",
+							"hastate": "maintenance"
+						}`, `{
+							"id": "node/pve2",
+							"type": "node",
+							"node": "pve2",
+							"status": "online",
+							"hastate": "maintenance"
+						}`, `{
+							"id": "node/pve3",
+							"type": "node",
+							"node": "pve3",
+							"status": "online",
+							"hastate": "maintenance"
+						}`)
+					case config.includeMultipleNodes:
+						pve2HAState := "online"
+						if config.includeNodeMaintenanceMode {
+							pve2HAState = "maintenance"
+						}
+						resources = append(resources, `{
+							"id": "node/pve1",
+							"type": "node",
+							"node": "pve1",
+							"status": "online",
+							"hastate": "online"
+						}`, fmt.Sprintf(`{
+							"id": "node/pve2",
+							"type": "node",
+							"node": "pve2",
+							"status": "online",
+							"hastate": "%s"
+						}`, pve2HAState), `{
+							"id": "node/pve3",
+							"type": "node",
+							"node": "pve3",
+							"status": "online",
+							"hastate": "online"
+						}`)
+					default:
+						resources = append(resources, `{
+							"id": "node/pve1",
+							"type": "node",
+							"node": "pve1",
+							"status": "online",
+							"hastate": "online"
+						}`)
+					}
+				}
+
 				fmt.Fprintf(w, `{"data": [%s]}`, strings.Join(resources, ","))
 			} else {
 				w.Write([]byte(`{"data": []}`))
@@ -675,6 +886,101 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 						}
 						return
 					}
+					if strings.Contains(r.URL.Path, "/qemu/300/config") {
+						// Stopped VM on maintenance node in prefer group (local storage)
+						w.Write([]byte(`{
+							"data": {
+								"name": "stopped-prefer-vm",
+								"memory": "1024",
+								"disks": {
+									"virtio0": "local:vm-300-disk-0.qcow2"
+								}
+							}
+						}`))
+						return
+					}
+					if strings.Contains(r.URL.Path, "/qemu/301/config") {
+						// Running VM on maintenance node (should not be migrated)
+						w.Write([]byte(`{
+							"data": {
+								"name": "running-prefer-vm",
+								"memory": "1024",
+								"disks": {
+									"virtio0": "local:vm-301-disk-0.qcow2"
+								}
+							}
+						}`))
+						return
+					}
+					if strings.Contains(r.URL.Path, "/qemu/302/config") {
+						// Template on shared storage (should be migrated)
+						w.Write([]byte(`{
+							"data": {
+								"name": "template-shared",
+								"memory": "512",
+								"disks": {
+									"virtio0": "shared-storage:vm-302-disk-0,size=10G"
+								}
+							}
+						}`))
+						return
+					}
+					if strings.Contains(r.URL.Path, "/qemu/303/config") {
+						// VM with crs-skip tag (should not be migrated)
+						w.Write([]byte(`{
+							"data": {
+								"name": "skip-vm",
+								"memory": "512",
+								"disks": {
+									"virtio0": "local:vm-303-disk-0.qcow2"
+								}
+							}
+						}`))
+						return
+					}
+					if strings.Contains(r.URL.Path, "/qemu/400/config") {
+						// VM with hostpci device (should force pin group)
+						w.Write([]byte(`{
+							"data": {
+								"name": "hostpci-vm",
+								"memory": "4096",
+								"disks": {
+									"virtio0": "shared-storage:vm-400-disk-0,size=50G"
+								},
+								"hostpci0": "01:00.0,pcie=1",
+								"hostpci1": "02:00.0,rombar=0"
+							}
+						}`))
+						return
+					}
+					if strings.Contains(r.URL.Path, "/qemu/401/config") {
+						// VM with empty CD-ROM (none,media=cdrom)
+						w.Write([]byte(`{
+							"data": {
+								"name": "empty-cdrom-vm",
+								"memory": "2048",
+								"disks": {
+									"virtio0": "local:vm-401-disk-0.qcow2",
+									"ide2": "none,media=cdrom"
+								}
+							}
+						}`))
+						return
+					}
+					if strings.Contains(r.URL.Path, "/qemu/402/config") {
+						// VM with scsihw controller type that should not be treated as disk
+						w.Write([]byte(`{
+							"data": {
+								"name": "scsihw-vm",
+								"memory": "2048",
+								"cores": 2,
+								"sockets": 1,
+								"scsi0": "local:vm-402-disk-0,size=32G",
+								"scsihw": "virtio-scsi-single"
+							}
+						}`))
+						return
+					}
 					// Default VM config response
 					w.Write([]byte(`{
 						"data": {
@@ -694,6 +1000,13 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 					// VM config update successful
 					w.Write([]byte(`{"data": null}`))
 					return
+				case http.MethodPost:
+					// Handle VM operations like migration
+					if strings.Contains(r.URL.Path, "/migrate") {
+						// VM migration endpoint
+						w.Write([]byte(`{"data": "UPID:pve1:00001234:00005678:5F8A1234:qmigrate:100:root@pam:"}`))
+						return
+					}
 				}
 			}
 

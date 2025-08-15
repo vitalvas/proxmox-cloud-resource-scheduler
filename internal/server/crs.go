@@ -33,6 +33,10 @@ func (s *Server) SetupCRS() error {
 		return fmt.Errorf("update HA status: %w", err)
 	}
 
+	if err := s.HandleNodeMaintenance(); err != nil {
+		return fmt.Errorf("handle node maintenance: %w", err)
+	}
+
 	if err := s.UpdateVMMeta(); err != nil {
 		return fmt.Errorf("update VM metadata: %w", err)
 	}

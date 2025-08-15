@@ -1,6 +1,10 @@
 package proxmox
 
-import "time"
+import (
+	"encoding/json"
+	"regexp"
+	"time"
+)
 
 type Node struct {
 	ID      string  `json:"id"`
@@ -155,6 +159,69 @@ type VMConfigRead struct {
 	Networks    map[string]string `json:"networks"`
 	Tags        string            `json:"tags"`
 	Startup     string            `json:"startup"`
+	HostPCI     map[string]string `json:"-"` // PCIe passthrough devices (populated via UnmarshalJSON)
+}
+
+// UnmarshalJSON custom unmarshaling to capture hostpci devices and other dynamic fields
+func (v *VMConfigRead) UnmarshalJSON(data []byte) error {
+	// First unmarshal into a generic map to capture all fields
+	var raw map[string]interface{}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	// Create an alias type to avoid infinite recursion
+	type Alias VMConfigRead
+	aux := &struct {
+		*Alias
+	}{
+		Alias: (*Alias)(v),
+	}
+
+	// Unmarshal into the alias first to populate standard fields
+	if err := json.Unmarshal(data, aux); err != nil {
+		return err
+	}
+
+	// Initialize maps if they don't exist
+	if v.Disks == nil {
+		v.Disks = make(map[string]string)
+	}
+	if v.Networks == nil {
+		v.Networks = make(map[string]string)
+	}
+	if v.HostPCI == nil {
+		v.HostPCI = make(map[string]string)
+	}
+
+	// Define regex patterns for device identification
+	var (
+		diskDevicePattern    = regexp.MustCompile(`^(virtio|ide|sata|scsi)([0-9]+)$`)
+		networkDevicePattern = regexp.MustCompile(`^net([0-9]+)$`)
+		hostpciDevicePattern = regexp.MustCompile(`^hostpci([0-9]+)$`)
+	)
+
+	// Process all fields to capture dynamic ones
+	for key, value := range raw {
+		strValue, ok := value.(string)
+		if !ok {
+			continue
+		}
+
+		switch {
+		case diskDevicePattern.MatchString(key):
+			// Disk devices (virtio0, scsi0, ide2, sata1, etc.)
+			v.Disks[key] = strValue
+		case networkDevicePattern.MatchString(key):
+			// Network devices (net0, net1, etc.)
+			v.Networks[key] = strValue
+		case hostpciDevicePattern.MatchString(key):
+			// PCIe passthrough devices (hostpci0, hostpci1, etc.)
+			v.HostPCI[key] = strValue
+		}
+	}
+
+	return nil
 }
 
 type ContainerConfig struct {

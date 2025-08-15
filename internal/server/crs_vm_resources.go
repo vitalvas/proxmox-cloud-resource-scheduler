@@ -134,12 +134,19 @@ func (s *Server) SetupVMHAResources() error {
 	return nil
 }
 
-// determineVMHAGroup determines the appropriate HA group for a VM based on its storage configuration
+// determineVMHAGroup determines the appropriate HA group for a VM based on its storage configuration and hardware devices
 func (s *Server) determineVMHAGroup(nodeName string, vmid int) (string, error) {
-	// Get VM configuration to analyze disk storage
+	// Get VM configuration to analyze disk storage and hardware devices
 	vmConfig, err := s.proxmox.GetVMConfig(nodeName, vmid)
 	if err != nil {
 		return "", fmt.Errorf("failed to get VM config: %w", err)
+	}
+
+	// Check if VM has hostpci devices (PCIe passthrough) - these require pinning to specific node
+	if len(vmConfig.HostPCI) > 0 {
+		pinGroup := tools.GetHAVMPinGroupName(nodeName)
+		logging.Debugf("VM %d has hostpci devices (%v), must use pin group: %s", vmid, getHostPCIDeviceList(vmConfig.HostPCI), pinGroup)
+		return pinGroup, nil
 	}
 
 	// Check if all VM disks are on shared storage
@@ -158,6 +165,15 @@ func (s *Server) determineVMHAGroup(nodeName string, vmid int) (string, error) {
 	pinGroup := tools.GetHAVMPinGroupName(nodeName)
 	logging.Debugf("VM %d has local storage, assigning to pin group: %s", vmid, pinGroup)
 	return pinGroup, nil
+}
+
+// getHostPCIDeviceList returns a list of hostpci device keys for logging
+func getHostPCIDeviceList(hostpci map[string]string) []string {
+	devices := make([]string, 0, len(hostpci))
+	for device := range hostpci {
+		devices = append(devices, device)
+	}
+	return devices
 }
 
 // areAllVMDisksShared checks if all VM storage devices (including CD-ROM) are on shared storage
@@ -189,6 +205,11 @@ func (s *Server) areAllVMDisksShared(disks map[string]string) (bool, error) {
 		// Extract storage name from disk configuration
 		storageName := s.extractStorageFromDiskConfig(diskValue)
 		if storageName == "" {
+			// Skip CD-ROM devices with no media (none,media=cdrom) - these don't affect storage analysis
+			if strings.HasPrefix(diskValue, "none,") {
+				logging.Debugf("Skipping CD-ROM device %s with no media: %s", diskKey, diskValue)
+				continue
+			}
 			logging.Warnf("Could not extract storage name from storage device config: %s=%s", diskKey, diskValue)
 			continue
 		}
@@ -233,6 +254,12 @@ func (s *Server) extractStorageFromDiskConfig(diskConfig string) string {
 	// "local-lvm:vm-100-disk-0,size=32G"
 	// "ceph-storage:vm-100-disk-1,size=100G,format=raw"
 	// "local:100/vm-100-disk-0.qcow2"
+	// "none,media=cdrom" (CD-ROM with no media inserted)
+
+	// Handle CD-ROM with no media first - "none" is not a real storage
+	if strings.HasPrefix(diskConfig, "none,") {
+		return ""
+	}
 
 	parts := strings.Split(diskConfig, ":")
 	if len(parts) >= 1 {

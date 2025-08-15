@@ -46,7 +46,7 @@ func (s *Server) UpdateHAStatusWithOptions(maxAttempts int, waitInterval time.Du
 					vmSID, resource.Name, resource.Node, resource.Status, resource.HAState)
 			}
 
-			// Check for error and disabled states (as before)
+			// Check for error and disabled states
 			switch resource.HAState {
 			case haStateError:
 				errorVMs = append(errorVMs, vmSID)
@@ -211,6 +211,8 @@ func (s *Server) fixErrorStateVM(vmSID string, haResource *proxmox.ClusterHAReso
 
 // startDisabledVM starts VMs that are in disabled state
 func (s *Server) startDisabledVM(vmSID string, haResource *proxmox.ClusterHAResource, maxAttempts int, waitInterval time.Duration) bool {
+	currentState := haResource.State
+
 	// Set state to started
 	startedResource := *haResource
 	startedResource.State = haStateStarted
@@ -221,8 +223,8 @@ func (s *Server) startDisabledVM(vmSID string, haResource *proxmox.ClusterHAReso
 
 	logging.Infof("Set HA resource %s to started, waiting for state to change", vmSID)
 
-	// Wait for the started state to be applied
-	if s.waitForHAStateChangeWithInterval(vmSID, haStateDisabled, haStateStarted, maxAttempts, waitInterval) {
+	// Wait for the started state to be applied (from current state to started)
+	if s.waitForHAStateChangeWithInterval(vmSID, currentState, haStateStarted, maxAttempts, waitInterval) {
 		logging.Infof("Successfully started HA resource %s", vmSID)
 		return true
 	}
