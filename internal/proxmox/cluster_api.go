@@ -1,6 +1,7 @@
 package proxmox
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -125,12 +126,26 @@ func (c *Client) DeleteClusterHAGroup(groupName string) error {
 }
 
 func (c *Client) GetClusterHAResources() ([]ClusterHAResource, error) {
+	var rawResponse interface{}
+	if err := c.Get("cluster/ha/resources", &rawResponse); err != nil {
+		return nil, fmt.Errorf("failed to get cluster HA resources: %w", err)
+	}
+
+	// Log the raw response for debugging
+	rawJSON, _ := json.Marshal(rawResponse)
+	logging.Debugf("Raw HA resources JSON response: %s", string(rawJSON))
+
+	// Now parse into our struct
 	var resources []ClusterHAResource
 	if err := c.Get("cluster/ha/resources", &resources); err != nil {
 		return nil, fmt.Errorf("failed to get cluster HA resources: %w", err)
 	}
 
 	logging.Debugf("Retrieved %d cluster HA resources", len(resources))
+	for _, resource := range resources {
+		logging.Debugf("HA Resource %s: state=%s, status=%s, crm-state=%s, request=%s, node=%s",
+			resource.SID, resource.State, resource.Status, resource.CRMState, resource.RequestedState, resource.Node)
+	}
 	return resources, nil
 }
 

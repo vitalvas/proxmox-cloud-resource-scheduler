@@ -196,6 +196,65 @@ func (c *Client) DeleteVMSnapshot(node string, vmid int, snapname string) (strin
 	return taskID, nil
 }
 
+func (c *Client) GetVMConfig(node string, vmid int) (*VMConfigRead, error) {
+	var config VMConfigRead
+	endpoint := fmt.Sprintf("nodes/%s/qemu/%d/config", node, vmid)
+	if err := c.Get(endpoint, &config); err != nil {
+		return nil, fmt.Errorf("failed to get VM %d config on node %s: %w", vmid, node, err)
+	}
+
+	logging.Debugf("Retrieved VM %d config on node %s", vmid, node)
+	return &config, nil
+}
+
+func (c *Client) UpdateVMConfig(node string, vmid int, config VMConfig) error {
+	endpoint := fmt.Sprintf("nodes/%s/qemu/%d/config", node, vmid)
+	data := url.Values{}
+
+	if config.Name != "" {
+		data.Set("name", config.Name)
+	}
+	if config.Description != "" {
+		data.Set("description", config.Description)
+	}
+	if config.OS != "" {
+		data.Set("ostype", config.OS)
+	}
+	if config.Memory > 0 {
+		data.Set("memory", strconv.Itoa(config.Memory))
+	}
+	if config.Cores > 0 {
+		data.Set("cores", strconv.Itoa(config.Cores))
+	}
+	if config.Sockets > 0 {
+		data.Set("sockets", strconv.Itoa(config.Sockets))
+	}
+	if config.Boot != "" {
+		data.Set("boot", config.Boot)
+	}
+	if config.Tags != "" {
+		data.Set("tags", config.Tags)
+	}
+	if config.Startup != "" {
+		data.Set("startup", config.Startup)
+	}
+
+	for key, value := range config.Disks {
+		data.Set(key, value)
+	}
+
+	for key, value := range config.Networks {
+		data.Set(key, value)
+	}
+
+	if err := c.Put(endpoint, data, nil); err != nil {
+		return fmt.Errorf("failed to update VM %d config on node %s: %w", vmid, node, err)
+	}
+
+	logging.Debugf("Updated VM %d config on node %s", vmid, node)
+	return nil
+}
+
 func (c *Client) CreateVMBackup(node string, vmid int, options BackupOptions) (string, error) {
 	return c.createBackup("qemu", node, vmid, options)
 }

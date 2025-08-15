@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -166,11 +167,12 @@ func TestNon2xxStatusCodes(t *testing.T) {
 
 func TestNetworkError(t *testing.T) {
 	config := &Config{
-		Endpoints: []string{"http://invalid-host:8006"},
+		Endpoints: []string{"http://192.0.2.1:8006"}, // Use TEST-NET-1 address that will fail fast
 		Auth: AuthConfig{
 			Method:   "token",
 			APIToken: "test@pam!test=12345678-1234-1234-1234-123456789012",
 		},
+		Timeout: 1 * time.Second, // Short timeout for testing
 	}
 
 	client := NewClient(config)

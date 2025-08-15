@@ -175,3 +175,55 @@ func TestClientBuildURL(t *testing.T) {
 		})
 	}
 }
+
+func TestAPIError_MessageParsing(t *testing.T) {
+	tests := []struct {
+		name        string
+		apiError    APIError
+		expectedMsg string
+	}{
+		{
+			name: "error field populated",
+			apiError: APIError{
+				Status:     400,
+				Message:    "Bad request",
+				MessageAlt: "",
+			},
+			expectedMsg: "API error 400: Bad request",
+		},
+		{
+			name: "message field populated",
+			apiError: APIError{
+				Status:     500,
+				Message:    "",
+				MessageAlt: "service 'vm:205' in error state, must be disabled and fixed first",
+			},
+			expectedMsg: "API error 500: service 'vm:205' in error state, must be disabled and fixed first",
+		},
+		{
+			name: "both fields populated - error field takes precedence",
+			apiError: APIError{
+				Status:     400,
+				Message:    "Primary error message",
+				MessageAlt: "Alternative error message",
+			},
+			expectedMsg: "API error 400: Primary error message",
+		},
+		{
+			name: "no message fields populated",
+			apiError: APIError{
+				Status:     404,
+				Message:    "",
+				MessageAlt: "",
+			},
+			expectedMsg: "API error 404: ",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.apiError.Error()
+			assert.Equal(t, tt.expectedMsg, result)
+		})
+	}
+}

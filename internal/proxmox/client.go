@@ -27,12 +27,18 @@ type APIResponse struct {
 }
 
 type APIError struct {
-	Status  int    `json:"status"`
-	Message string `json:"error"`
+	Status     int    `json:"status"`
+	Message    string `json:"error"`
+	MessageAlt string `json:"message"`
 }
 
 func (e *APIError) Error() string {
-	return fmt.Sprintf("API error %d: %s", e.Status, e.Message)
+	// Use MessageAlt (message field) if Message (error field) is empty
+	message := e.Message
+	if message == "" && e.MessageAlt != "" {
+		message = e.MessageAlt
+	}
+	return fmt.Sprintf("API error %d: %s", e.Status, message)
 }
 
 func NewClient(config *Config) *Client {

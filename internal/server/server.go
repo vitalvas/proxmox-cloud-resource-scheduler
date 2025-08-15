@@ -13,8 +13,9 @@ import (
 )
 
 type Server struct {
-	proxmox *proxmox.Client
-	consul  *consul.Consul
+	proxmox          *proxmox.Client
+	consul           *consul.Consul
+	disableRateLimit bool // For testing purposes
 }
 
 func New() (*Server, error) {

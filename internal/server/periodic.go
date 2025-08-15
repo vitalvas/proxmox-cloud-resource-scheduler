@@ -11,9 +11,5 @@ func (s *Server) runPeriodic() error {
 		return fmt.Errorf("setup CRS: %w", err)
 	}
 
-	if err := s.SetupCRSQemu(); err != nil {
-		return fmt.Errorf("setup CRS QEMU: %w", err)
-	}
-
 	return nil
 }

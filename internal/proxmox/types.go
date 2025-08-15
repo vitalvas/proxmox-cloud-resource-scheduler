@@ -83,6 +83,7 @@ type ClusterResource struct {
 	VMID      int     `json:"vmid"`
 	Name      string  `json:"name"`
 	Status    string  `json:"status"`
+	HAState   string  `json:"hastate"`
 	Template  int     `json:"template"`
 	CPU       float64 `json:"cpu"`
 	MaxCPU    int     `json:"maxcpu"`
@@ -97,6 +98,7 @@ type ClusterResource struct {
 	Uptime    int     `json:"uptime"`
 	Level     string  `json:"level"`
 	Tags      string  `json:"tags"`
+	Pool      string  `json:"pool"`
 }
 
 type Task struct {
@@ -138,6 +140,21 @@ type VMConfig struct {
 	Disks       map[string]string `json:"disks"`
 	Networks    map[string]string `json:"networks"`
 	Tags        string            `json:"tags"`
+	Startup     string            `json:"startup"`
+}
+
+type VMConfigRead struct {
+	Name        string            `json:"name"`
+	Description string            `json:"description"`
+	OS          string            `json:"ostype"`
+	Memory      interface{}       `json:"memory"`  // Can be string or int
+	Cores       interface{}       `json:"cores"`   // Can be string or int
+	Sockets     interface{}       `json:"sockets"` // Can be string or int
+	Boot        string            `json:"boot"`
+	Disks       map[string]string `json:"disks"`
+	Networks    map[string]string `json:"networks"`
+	Tags        string            `json:"tags"`
+	Startup     string            `json:"startup"`
 }
 
 type ContainerConfig struct {
@@ -208,13 +225,17 @@ type ClusterHAGroup struct {
 }
 
 type ClusterHAResource struct {
-	SID         string `json:"sid"`
-	State       string `json:"state"`
-	Group       string `json:"group"`
-	MaxRelocate int    `json:"max_relocate"`
-	MaxRestart  int    `json:"max_restart"`
-	Comment     string `json:"comment"`
-	Type        string `json:"type"`
+	SID            string `json:"sid"`
+	State          string `json:"state"`
+	Group          string `json:"group"`
+	MaxRelocate    int    `json:"max_relocate"`
+	MaxRestart     int    `json:"max_restart"`
+	Comment        string `json:"comment"`
+	Type           string `json:"type"`
+	Status         string `json:"status"`
+	Node           string `json:"node"`
+	CRMState       string `json:"crm-state"`
+	RequestedState string `json:"request"`
 }
 
 type ClusterConfig struct {
