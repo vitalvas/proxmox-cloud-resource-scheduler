@@ -11,34 +11,35 @@ import (
 )
 
 type testHandlerConfig struct {
-	includeStorage               bool
-	includeSharedStorage         bool
-	includeHAGroups              bool
-	includeHAResources           bool
-	includeErrorHAResources      bool
-	includeDisabledHAResources   bool
-	includeCriticalVMResources   bool
-	includeNonCRSErrorHAResource bool
-	includeNodes                 bool
-	includeNodeVMs               bool
-	includeClusterOptions        bool
-	includeClusterResources      bool
-	includeVMConfig              bool
-	crsTagAlreadyExists          bool
-	includeMultipleNodes         bool
-	includeOutdatedHAGroups      bool
-	includeCorrectHAGroups       bool
-	includeSharedStorageVM       bool // Include VM 200 with shared storage config
-	includeRunningDisabledVM     bool // Include VM 106 with running status but disabled HA
-	includeLongRunningVMs        bool // Include VMs with uptime > 24h
-	includeLongRunningVMHARes    bool // Include HA resource for VM 111 (long-running)
-	includeLongRunningVMInPin    bool // Include VM 111 in pin group (vs prefer)
-	includeNodeMaintenanceMode   bool // Include pve2 in maintenance mode
-	includeMaintenanceVMs        bool // Include VMs that need migration from maintenance node
-	includeAllNodesInMaintenance bool // All nodes in maintenance mode
-	includeVMWithHostPCI         bool // Include VM with hostpci devices
-	includeVMWithEmptyCDROM      bool // Include VM with CD-ROM that has no media (none)
-	includeVMWithSCSIHW          bool // Include VM with scsihw controller type
+	includeStorage                  bool
+	includeSharedStorage            bool
+	includeHAGroups                 bool
+	includeHAResources              bool
+	includeErrorHAResources         bool
+	includeDisabledHAResources      bool
+	includeCriticalVMResources      bool
+	includeNonCRSErrorHAResource    bool
+	includeNodes                    bool
+	includeNodeVMs                  bool
+	includeClusterOptions           bool
+	includeClusterResources         bool
+	includeVMConfig                 bool
+	crsTagAlreadyExists             bool
+	includeMultipleNodes            bool
+	includeOutdatedHAGroups         bool
+	includeCorrectHAGroups          bool
+	includeSharedStorageVM          bool // Include VM 200 with shared storage config
+	includeRunningDisabledVM        bool // Include VM 106 with running status but disabled HA
+	includeLongRunningVMs           bool // Include VMs with uptime > 24h
+	includeLongRunningVMHARes       bool // Include HA resource for VM 111 (long-running)
+	includeLongRunningVMInPin       bool // Include VM 111 in pin group (vs prefer)
+	includeNodeMaintenanceMode      bool // Include pve2 in maintenance mode
+	includeMaintenanceVMs           bool // Include VMs that need migration from maintenance node
+	includeAllNodesInMaintenance    bool // All nodes in maintenance mode
+	includeVMWithHostPCI            bool // Include VM with hostpci devices
+	includeVMWithEmptyCDROM         bool // Include VM with CD-ROM that has no media (none)
+	includeVMWithSCSIHW             bool // Include VM with scsihw controller type
+	includeCriticalVMInMigrateState bool // Include critical VM in migrate state
 }
 
 //nolint:gocyclo // Test helper function with many mock scenarios is acceptable
@@ -123,7 +124,7 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 		case "/api2/json/cluster/ha/resources":
 			switch r.Method {
 			case http.MethodGet:
-				if config.includeHAResources || config.includeErrorHAResources || config.includeLongRunningVMHARes {
+				if config.includeHAResources || config.includeErrorHAResources || config.includeLongRunningVMHARes || config.includeCriticalVMInMigrateState {
 					var resources []string
 					if config.includeHAResources {
 						resources = append(resources, `{
@@ -221,6 +222,18 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 							"type": "vm",
 							"node": "pve1"
 						}`, haGroup))
+					}
+					if config.includeCriticalVMInMigrateState {
+						resources = append(resources, `{
+							"sid": "vm:115",
+							"state": "started",
+							"status": "started",
+							"crm-state": "started",
+							"request": "started",
+							"group": "crs-vm-prefer-pve01",
+							"type": "vm",
+							"node": "pve1"
+						}`)
 					}
 					if config.includeMaintenanceVMs {
 						// Add HA resources for VMs on maintenance node
@@ -499,7 +512,7 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 			}
 
 		case "/api2/json/cluster/resources":
-			if config.includeClusterResources || config.includeErrorHAResources || config.includeDisabledHAResources || config.includeCriticalVMResources || config.includeRunningDisabledVM || config.includeLongRunningVMs || config.includeLongRunningVMHARes {
+			if config.includeClusterResources || config.includeErrorHAResources || config.includeDisabledHAResources || config.includeCriticalVMResources || config.includeRunningDisabledVM || config.includeLongRunningVMs || config.includeLongRunningVMHARes || config.includeCriticalVMInMigrateState {
 				var resources []string
 				if config.includeClusterResources {
 					resources = append(resources, `{
@@ -576,6 +589,18 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 						"node": "pve1",
 						"status": "stopped",
 						"hastate": "disabled",
+						"tags": "crs-critical"
+					}`)
+				}
+				if config.includeCriticalVMInMigrateState {
+					resources = append(resources, `{
+						"id": "vm/115",
+						"type": "qemu",
+						"vmid": 115,
+						"name": "critical-vm-migrating",
+						"node": "pve1",
+						"status": "running",
+						"hastate": "migrate",
 						"tags": "crs-critical"
 					}`)
 				}

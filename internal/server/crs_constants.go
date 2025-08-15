@@ -15,6 +15,7 @@ const (
 	haStateStarted  = "started"
 	haStateStopped  = "stopped"
 	haStateIgnored  = "ignored"
+	haStateMigrate  = "migrate"
 
 	// VM statuses
 	vmStatusRunning = "running"

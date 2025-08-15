@@ -40,7 +40,8 @@ func (s *Server) UpdateHAStatusWithOptions(maxAttempts int, waitInterval time.Du
 			vmSID := fmt.Sprintf("vm:%d", resource.VMID)
 
 			// Check if VM has critical tag and is not in started state
-			if s.hasVMCriticalTag(resource.Tags) && resource.HAState != haStateStarted {
+			// Skip VMs that are currently migrating as they shouldn't be forced to started state
+			if s.hasVMCriticalTag(resource.Tags) && resource.HAState != haStateStarted && resource.HAState != haStateMigrate {
 				criticalNotStartedVMs = append(criticalNotStartedVMs, vmSID)
 				logging.Debugf("VM %s with critical tag detected in non-started state: name=%s, node=%s, status=%s, hastate=%s",
 					vmSID, resource.Name, resource.Node, resource.Status, resource.HAState)

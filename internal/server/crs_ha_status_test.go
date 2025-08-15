@@ -128,3 +128,20 @@ func TestUpdateHAStatusSkipsCRSSkipVMs(t *testing.T) {
 		})
 	}
 }
+
+func TestUpdateHAStatusSkipsMigratingVMs(t *testing.T) {
+	t.Run("should skip critical VMs in migrate state", func(t *testing.T) {
+		config := testHandlerConfig{
+			includeHAResources:              true,
+			includeClusterResources:         true,
+			includeCriticalVMInMigrateState: true, // Include VM with critical tag in migrate state
+		}
+
+		testServer, mockServer := createTestServerWithConfig(config)
+		defer mockServer.Close()
+
+		// The VM with critical tag in migrate state should be skipped
+		err := testServer.UpdateHAStatusWithOptions(1, 1*time.Millisecond)
+		assert.NoError(t, err)
+	})
+}
