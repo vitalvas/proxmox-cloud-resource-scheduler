@@ -30,6 +30,9 @@ type testHandlerConfig struct {
 	includeCorrectHAGroups       bool
 	includeSharedStorageVM       bool // Include VM 200 with shared storage config
 	includeRunningDisabledVM     bool // Include VM 106 with running status but disabled HA
+	includeLongRunningVMs        bool // Include VMs with uptime > 24h
+	includeLongRunningVMHARes    bool // Include HA resource for VM 111 (long-running)
+	includeLongRunningVMInPin    bool // Include VM 111 in pin group (vs prefer)
 }
 
 //nolint:gocyclo // Test helper function with many mock scenarios is acceptable
@@ -114,7 +117,7 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 		case "/api2/json/cluster/ha/resources":
 			switch r.Method {
 			case http.MethodGet:
-				if config.includeHAResources || config.includeErrorHAResources {
+				if config.includeHAResources || config.includeErrorHAResources || config.includeLongRunningVMHARes {
 					var resources []string
 					if config.includeHAResources {
 						resources = append(resources, `{
@@ -196,6 +199,22 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 							"type": "vm",
 							"node": "pve1"
 						}`)
+					}
+					if config.includeLongRunningVMHARes {
+						haGroup := "crs-vm-prefer-pve1"
+						if config.includeLongRunningVMInPin {
+							haGroup = "crs-vm-pin-pve1"
+						}
+						resources = append(resources, fmt.Sprintf(`{
+							"sid": "vm:111",
+							"state": "started",
+							"status": "started",
+							"crm-state": "started",
+							"request": "started",
+							"group": "%s",
+							"type": "vm",
+							"node": "pve1"
+						}`, haGroup))
 					}
 					fmt.Fprintf(w, `{"data": [%s]}`, strings.Join(resources, ","))
 				} else {
@@ -296,6 +315,16 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 							"tags": ""
 						}`
 				}
+				if config.includeLongRunningVMs {
+					vmList += `,
+						{
+							"vmid": 111,
+							"name": "long-running-vm",
+							"status": "running",
+							"template": 0,
+							"tags": ""
+						}`
+				}
 				vmList += `
 					]`
 				fmt.Fprintf(w, `{"data": %s}`, vmList)
@@ -357,7 +386,7 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 			}
 
 		case "/api2/json/cluster/resources":
-			if config.includeClusterResources || config.includeErrorHAResources || config.includeDisabledHAResources || config.includeCriticalVMResources || config.includeRunningDisabledVM {
+			if config.includeClusterResources || config.includeErrorHAResources || config.includeDisabledHAResources || config.includeCriticalVMResources || config.includeRunningDisabledVM || config.includeLongRunningVMs || config.includeLongRunningVMHARes {
 				var resources []string
 				if config.includeClusterResources {
 					resources = append(resources, `{
@@ -446,6 +475,19 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 						"node": "pve1",
 						"status": "running",
 						"hastate": "disabled",
+						"tags": ""
+					}`)
+				}
+				if config.includeLongRunningVMs {
+					resources = append(resources, `{
+						"id": "vm/111",
+						"type": "qemu",
+						"vmid": 111,
+						"name": "long-running-vm",
+						"node": "pve1",
+						"status": "running",
+						"hastate": "started",
+						"uptime": 90000,
 						"tags": ""
 					}`)
 				}
@@ -554,14 +596,15 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 						return
 					}
 					if strings.Contains(r.URL.Path, "/qemu/202/config") {
-						// VM with mixed storage (shared + local)
+						// VM with mixed storage (shared + local) including CD-ROM on local storage
 						w.Write([]byte(`{
 							"data": {
 								"name": "mixed-storage-vm",
 								"memory": "2048",
 								"disks": {
 									"virtio0": "shared-storage:vm-202-disk-0,size=32G",
-									"virtio1": "local:vm-202-disk-1.qcow2"
+									"virtio1": "local:vm-202-disk-1.qcow2",
+									"ide2": "local:iso/ubuntu-20.04.iso,media=cdrom"
 								}
 							}
 						}`))
@@ -602,6 +645,34 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 								}
 							}
 						}`))
+						return
+					}
+					if strings.Contains(r.URL.Path, "/qemu/111/config") {
+						// Long-running VM - storage config depends on test scenario
+						if config.includeLongRunningVMHARes && config.includeLongRunningVMInPin && config.includeSharedStorage {
+							// Simulate post-detachment state: only shared storage left
+							w.Write([]byte(`{
+								"data": {
+									"name": "long-running-vm",
+									"memory": "2048",
+									"disks": {
+										"virtio0": "shared-storage:vm-111-disk-0,size=32G"
+									}
+								}
+							}`))
+						} else {
+							// Pre-detachment state: has CD-ROM on local storage
+							w.Write([]byte(`{
+								"data": {
+									"name": "long-running-vm",
+									"memory": "2048",
+									"disks": {
+										"virtio0": "shared-storage:vm-111-disk-0,size=32G",
+										"ide2": "local:iso/installer.iso,media=cdrom"
+									}
+								}
+							}`))
+						}
 						return
 					}
 					// Default VM config response
