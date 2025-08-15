@@ -1,21 +1,10 @@
 package server
 
 import (
-	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
-
-func createTestServer() (*Server, *httptest.Server) {
-	return createTestServerWithConfig(testHandlerConfig{
-		includeStorage:        true,
-		includeSharedStorage:  false,
-		includeHAGroups:       true,
-		includeNodes:          true,
-		includeClusterOptions: true,
-	})
-}
 
 func TestSetupCRS(t *testing.T) {
 	tests := []struct {

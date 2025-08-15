@@ -28,6 +28,7 @@ type testHandlerConfig struct {
 	includeMultipleNodes         bool
 	includeOutdatedHAGroups      bool
 	includeCorrectHAGroups       bool
+	includeSharedStorageVM       bool // Include VM 200 with shared storage config
 }
 
 //nolint:gocyclo // Test helper function with many mock scenarios is acceptable
@@ -230,8 +231,7 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 
 		case "/api2/json/nodes/pve1/qemu":
 			if config.includeNodeVMs {
-				w.Write([]byte(`{
-					"data": [
+				vmList := `[
 						{
 							"vmid": 100,
 							"name": "test-vm",
@@ -252,31 +252,53 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 							"status": "running",
 							"template": 0,
 							"tags": "crs-skip"
-						}
-					]
-				}`))
+						}`
+				if config.includeSharedStorageVM {
+					vmList += `,
+						{
+							"vmid": 200,
+							"name": "shared-storage-vm",
+							"status": "running",
+							"template": 0,
+							"tags": ""
+						}`
+				}
+				vmList += `
+					]`
+				fmt.Fprintf(w, `{"data": %s}`, vmList)
 			} else {
 				w.Write([]byte(`{"data": []}`))
 			}
 
 		case "/api2/json/storage":
 			if config.includeStorage {
-				sharedValue := 0
-				contentValue := "vztmpl,backup,iso"
+				sharedStorageValue := 0
 				if config.includeSharedStorage {
-					sharedValue = 1
-					contentValue = "images,vztmpl,backup,iso"
+					sharedStorageValue = 1
 				}
+				// Return both local and shared storage for testing mixed scenarios
 				fmt.Fprintf(w, `{
 					"data": [
 						{
 							"storage": "local",
 							"type": "dir",
+							"shared": 0,
+							"content": "images,vztmpl,backup,iso"
+						},
+						{
+							"storage": "shared-storage",
+							"type": "cephfs",
 							"shared": %d,
-							"content": "%s"
+							"content": "images,vztmpl,backup,iso"
+						},
+						{
+							"storage": "local-lvm",
+							"type": "lvm",
+							"shared": 0,
+							"content": "images"
 						}
 					]
-				}`, sharedValue, contentValue)
+				}`, sharedStorageValue)
 			} else {
 				w.Write([]byte(`{"data": []}`))
 			}
@@ -435,7 +457,8 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 								"startup": "",
 								"memory": "2048",
 								"cores": "2",
-								"sockets": "1"
+								"sockets": "1",
+								"disks": {}
 							}
 						}`))
 						return
@@ -449,7 +472,63 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 								"startup": "order=1",
 								"memory": "2048",
 								"cores": "2",
-								"sockets": "1"
+								"sockets": "1",
+								"disks": {}
+							}
+						}`))
+						return
+					}
+					// Handle storage-based VM configuration tests
+					if strings.Contains(r.URL.Path, "/qemu/200/config") {
+						// VM with all storage devices on shared storage
+						w.Write([]byte(`{
+							"data": {
+								"name": "shared-storage-vm",
+								"memory": "2048",
+								"disks": {
+									"virtio0": "shared-storage:vm-200-disk-0,size=32G",
+									"virtio1": "shared-storage:vm-200-disk-1,size=100G",
+									"ide2": "shared-storage:iso/ubuntu-20.04.iso,media=cdrom"
+								}
+							}
+						}`))
+						return
+					}
+					if strings.Contains(r.URL.Path, "/qemu/201/config") {
+						// VM with all disks on local storage
+						w.Write([]byte(`{
+							"data": {
+								"name": "local-storage-vm",
+								"memory": "1024",
+								"disks": {
+									"virtio0": "local:vm-201-disk-0.qcow2",
+									"scsi0": "local-lvm:vm-201-disk-1,size=50G"
+								}
+							}
+						}`))
+						return
+					}
+					if strings.Contains(r.URL.Path, "/qemu/202/config") {
+						// VM with mixed storage (shared + local)
+						w.Write([]byte(`{
+							"data": {
+								"name": "mixed-storage-vm",
+								"memory": "2048",
+								"disks": {
+									"virtio0": "shared-storage:vm-202-disk-0,size=32G",
+									"virtio1": "local:vm-202-disk-1.qcow2"
+								}
+							}
+						}`))
+						return
+					}
+					if strings.Contains(r.URL.Path, "/qemu/203/config") {
+						// VM with no disks
+						w.Write([]byte(`{
+							"data": {
+								"name": "no-disk-vm",
+								"memory": "512",
+								"disks": {}
 							}
 						}`))
 						return
@@ -462,7 +541,10 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 							"startup": "order=2",
 							"memory": "1024",
 							"cores": "1",
-							"sockets": "1"
+							"sockets": "1",
+							"disks": {
+								"virtio0": "local:vm-100-disk-0.qcow2"
+							}
 						}
 					}`))
 					return
@@ -520,4 +602,8 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 	}
 
 	return testServer, server
+}
+
+func createTestServer() (*Server, *httptest.Server) {
+	return createTestServerWithConfig(testHandlerConfig{})
 }

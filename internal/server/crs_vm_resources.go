@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/vitalvas/proxmox-cloud-resource-scheduler/internal/logging"
 	"github.com/vitalvas/proxmox-cloud-resource-scheduler/internal/proxmox"
@@ -74,6 +75,13 @@ func (s *Server) SetupVMHAResources() error {
 				haState = haStateIgnored
 			}
 
+			// Determine appropriate HA group based on VM storage configuration
+			haGroup, err := s.determineVMHAGroup(node.Node, vm.VMID)
+			if err != nil {
+				logging.Warnf("Failed to determine HA group for VM %d (%s), using pin group: %v", vm.VMID, vm.Name, err)
+				haGroup = haGroupPin
+			}
+
 			// Create HA resource
 			data := proxmox.ClusterHAResource{
 				SID:         sid,
@@ -81,7 +89,7 @@ func (s *Server) SetupVMHAResources() error {
 				Comment:     haResourceComment,
 				MaxRelocate: proxmox.HAMaxRelocate,
 				MaxRestart:  proxmox.HAMaxRestart,
-				Group:       haGroupPin,
+				Group:       haGroup,
 				State:       haState,
 			}
 
@@ -89,7 +97,7 @@ func (s *Server) SetupVMHAResources() error {
 				return fmt.Errorf("failed to create HA resource for %s (%s): %w", sid, vm.Name, err)
 			}
 
-			logging.Infof("Created HA resource for VM %d (%s) on node %s with state %s", vm.VMID, vm.Name, node.Node, haState)
+			logging.Infof("Created HA resource for VM %d (%s) on node %s with state %s and assigned to HA group %s", vm.VMID, vm.Name, node.Node, haState, haGroup)
 			createdCount++
 
 			// Sleep to avoid overwhelming the Proxmox API
@@ -104,4 +112,112 @@ func (s *Server) SetupVMHAResources() error {
 	}
 
 	return nil
+}
+
+// determineVMHAGroup determines the appropriate HA group for a VM based on its storage configuration
+func (s *Server) determineVMHAGroup(nodeName string, vmid int) (string, error) {
+	// Get VM configuration to analyze disk storage
+	vmConfig, err := s.proxmox.GetVMConfig(nodeName, vmid)
+	if err != nil {
+		return "", fmt.Errorf("failed to get VM config: %w", err)
+	}
+
+	// Check if all VM disks are on shared storage
+	allDisksShared, err := s.areAllVMDisksShared(vmConfig.Disks)
+	if err != nil {
+		return "", fmt.Errorf("failed to analyze VM storage: %w", err)
+	}
+
+	if allDisksShared {
+		// All disks are on shared storage - use prefer group for better load distribution
+		preferGroup := tools.GetHAVMPreferGroupName(nodeName)
+		logging.Debugf("VM %d has all disks on shared storage, assigning to prefer group: %s", vmid, preferGroup)
+		return preferGroup, nil
+	}
+	// At least one disk is on local/non-shared storage - use pin group to keep VM on this node
+	pinGroup := tools.GetHAVMPinGroupName(nodeName)
+	logging.Debugf("VM %d has local storage, assigning to pin group: %s", vmid, pinGroup)
+	return pinGroup, nil
+}
+
+// areAllVMDisksShared checks if all VM storage devices (including CD-ROM) are on shared storage
+func (s *Server) areAllVMDisksShared(disks map[string]string) (bool, error) {
+	if len(disks) == 0 {
+		// No storage devices found, consider as shared (edge case)
+		return true, nil
+	}
+
+	// Get all storage information
+	storages, err := s.proxmox.GetStorage()
+	if err != nil {
+		return false, fmt.Errorf("failed to get storage info: %w", err)
+	}
+
+	// Create a map of storage name to shared status for quick lookup
+	storageSharedMap := make(map[string]bool)
+	for _, storage := range storages {
+		storageSharedMap[storage.Storage] = storage.Shared == 1
+	}
+
+	// Check each storage device (including CD-ROM drives)
+	for diskKey, diskValue := range disks {
+		// Skip non-storage entries
+		if !s.isDiskEntry(diskKey) {
+			continue
+		}
+
+		// Extract storage name from disk configuration
+		storageName := s.extractStorageFromDiskConfig(diskValue)
+		if storageName == "" {
+			logging.Warnf("Could not extract storage name from storage device config: %s=%s", diskKey, diskValue)
+			continue
+		}
+
+		// Check if this storage is shared
+		isShared, exists := storageSharedMap[storageName]
+		if !exists {
+			logging.Warnf("Storage %s not found in cluster storage list", storageName)
+			// Assume non-shared if we can't find the storage
+			return false, nil
+		}
+
+		if !isShared {
+			// Found at least one storage device on non-shared storage
+			logging.Debugf("Storage device %s on storage %s is not shared", diskKey, storageName)
+			return false, nil
+		}
+	}
+
+	// All storage devices are on shared storage
+	return true, nil
+}
+
+// isDiskEntry checks if a configuration key represents any storage device
+func (s *Server) isDiskEntry(key string) bool {
+	// Proxmox storage device keys: virtio0, virtio1, sata0, sata1, scsi0, scsi1, ide0, ide1, ide2, etc.
+	// Include ALL storage devices including CD-ROM drives
+	storageDevicePrefixes := []string{"virtio", "sata", "scsi", "ide"}
+
+	for _, prefix := range storageDevicePrefixes {
+		if strings.HasPrefix(key, prefix) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// extractStorageFromDiskConfig extracts the storage name from a disk configuration string
+func (s *Server) extractStorageFromDiskConfig(diskConfig string) string {
+	// Disk config format examples:
+	// "local-lvm:vm-100-disk-0,size=32G"
+	// "ceph-storage:vm-100-disk-1,size=100G,format=raw"
+	// "local:100/vm-100-disk-0.qcow2"
+
+	parts := strings.Split(diskConfig, ":")
+	if len(parts) >= 1 {
+		return parts[0]
+	}
+
+	return ""
 }
