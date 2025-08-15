@@ -88,16 +88,45 @@ func (s *Server) SetupVMPrefer() error {
 
 			var groupNodes []string
 
-			for _, n := range nodes {
+			// Create a copy of nodes for sorting to ensure consistent ordering
+			sortedNodes := make([]proxmox.Node, len(nodes))
+			copy(sortedNodes, nodes)
+			sort.Slice(sortedNodes, func(i, j int) bool {
+				return sortedNodes[i].Node < sortedNodes[j].Node
+			})
+
+			// Find the index of the preferred node
+			preferredIndex := -1
+			for i, n := range sortedNodes {
 				if n.Node == node.Node {
-					groupNodes = append(groupNodes,
-						fmt.Sprintf("%s:%d", n.Node, crsMaxNodePriority),
-					)
-				} else {
-					groupNodes = append(groupNodes,
-						fmt.Sprintf("%s:%d", n.Node, crsMinNodePriority),
-					)
+					preferredIndex = i
+					break
 				}
+			}
+
+			// Assign priorities using round-robin starting from preferred node
+			for i, n := range sortedNodes {
+				var priority int
+				if n.Node == node.Node {
+					// Preferred node gets maximum priority
+					priority = crsMaxNodePriority
+				} else {
+					// Calculate round-robin position relative to preferred node
+					relativePosition := (i - preferredIndex + len(sortedNodes)) % len(sortedNodes)
+					if relativePosition == 0 {
+						relativePosition = len(sortedNodes) // Move preferred node to end for calculation
+					}
+					// Start from max priority and decrement by 5 for each position
+					priority = crsMaxNodePriority - (relativePosition * 5)
+					// Ensure priority doesn't go below minimum
+					if priority < crsMinNodePriority {
+						priority = crsMinNodePriority
+					}
+				}
+
+				groupNodes = append(groupNodes,
+					fmt.Sprintf("%s:%d", n.Node, priority),
+				)
 			}
 
 			sort.Strings(groupNodes)

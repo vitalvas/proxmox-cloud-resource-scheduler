@@ -25,6 +25,7 @@ type testHandlerConfig struct {
 	includeClusterResources      bool
 	includeVMConfig              bool
 	crsTagAlreadyExists          bool
+	includeMultipleNodes         bool
 }
 
 //nolint:gocyclo // Test helper function with many mock scenarios is acceptable
@@ -126,15 +127,37 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 
 		case "/api2/json/nodes":
 			if config.includeNodes {
-				w.Write([]byte(`{
-					"data": [
-						{
-							"node": "pve1",
-							"status": "online",
-							"type": "node"
-						}
-					]
-				}`))
+				if config.includeMultipleNodes {
+					w.Write([]byte(`{
+						"data": [
+							{
+								"node": "pve1",
+								"status": "online",
+								"type": "node"
+							},
+							{
+								"node": "pve2",
+								"status": "online",
+								"type": "node"
+							},
+							{
+								"node": "pve3",
+								"status": "online",
+								"type": "node"
+							}
+						]
+					}`))
+				} else {
+					w.Write([]byte(`{
+						"data": [
+							{
+								"node": "pve1",
+								"status": "online",
+								"type": "node"
+							}
+						]
+					}`))
+				}
 			} else {
 				w.Write([]byte(`{"data": []}`))
 			}
