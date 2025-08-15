@@ -26,6 +26,8 @@ type testHandlerConfig struct {
 	includeVMConfig              bool
 	crsTagAlreadyExists          bool
 	includeMultipleNodes         bool
+	includeOutdatedHAGroups      bool
+	includeCorrectHAGroups       bool
 }
 
 //nolint:gocyclo // Test helper function with many mock scenarios is acceptable
@@ -38,7 +40,71 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 		case "/api2/json/cluster/ha/groups":
 			switch r.Method {
 			case http.MethodGet:
-				w.Write([]byte(`{"data": []}`))
+				switch {
+				case config.includeOutdatedHAGroups:
+					// Return existing HA groups with outdated configuration
+					if config.includeMultipleNodes {
+						w.Write([]byte(`{
+							"data": [
+								{
+									"group": "crs-vm-pin-pve1",
+									"nodes": "pve1:1000",
+									"restricted": 1,
+									"nofailback": 1
+								},
+								{
+									"group": "crs-vm-prefer-pve1",
+									"nodes": "pve1:1000,pve2:1",
+									"restricted": 1,
+									"nofailback": 1
+								}
+							]
+						}`))
+					} else {
+						w.Write([]byte(`{
+							"data": [
+								{
+									"group": "crs-vm-pin-pve1",
+									"nodes": "pve1:500",
+									"restricted": 1,
+									"nofailback": 1
+								}
+							]
+						}`))
+					}
+				case config.includeCorrectHAGroups && config.includeMultipleNodes:
+					// Return existing HA groups with correct configuration but different order
+					w.Write([]byte(`{
+						"data": [
+							{
+								"group": "crs-vm-pin-pve1",
+								"nodes": "pve1:1000",
+								"restricted": 1,
+								"nofailback": 1
+							},
+							{
+								"group": "crs-vm-prefer-pve1",
+								"nodes": "pve3:990,pve1:1000,pve2:995",
+								"restricted": 1,
+								"nofailback": 1
+							},
+							{
+								"group": "crs-vm-prefer-pve2",
+								"nodes": "pve1:990,pve3:995,pve2:1000",
+								"restricted": 1,
+								"nofailback": 1
+							},
+							{
+								"group": "crs-vm-prefer-pve3",
+								"nodes": "pve2:990,pve3:1000,pve1:995",
+								"restricted": 1,
+								"nofailback": 1
+							}
+						]
+					}`))
+				default:
+					w.Write([]byte(`{"data": []}`))
+				}
 			case http.MethodPost:
 				w.Write([]byte(`{"data": null}`))
 			}
@@ -418,8 +484,12 @@ func createTestServerWithConfig(config testHandlerConfig) (*Server, *httptest.Se
 					return
 				}
 			}
-			// Handle PUT operations for updating HA resources
+			// Handle PUT operations for updating HA groups and resources
 			if r.Method == http.MethodPut {
+				if strings.HasPrefix(r.URL.Path, "/api2/json/cluster/ha/groups/") {
+					w.Write([]byte(`{"data": null}`))
+					return
+				}
 				if strings.HasPrefix(r.URL.Path, "/api2/json/cluster/ha/resources/") {
 					w.Write([]byte(`{"data": null}`))
 					return

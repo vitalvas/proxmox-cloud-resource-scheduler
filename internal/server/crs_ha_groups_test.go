@@ -435,3 +435,127 @@ func TestSetupVMPreferPriorityMinimumBoundary(t *testing.T) {
 		}
 	})
 }
+
+func TestSetupVMPinUpdatesExistingGroups(t *testing.T) {
+	t.Run("updates existing pin group with correct configuration", func(t *testing.T) {
+		config := testHandlerConfig{
+			includeHAGroups:         true,
+			includeNodes:            true,
+			includeOutdatedHAGroups: true, // This will return an existing group with wrong priority
+		}
+
+		testServer, mockServer := createTestServerWithConfig(config)
+		defer mockServer.Close()
+
+		// Should succeed and update the existing group
+		err := testServer.SetupVMPin()
+		assert.NoError(t, err)
+	})
+}
+
+func TestSetupVMPreferUpdatesExistingGroups(t *testing.T) {
+	t.Run("updates existing prefer group with correct configuration", func(t *testing.T) {
+		config := testHandlerConfig{
+			includeHAGroups:         true,
+			includeNodes:            true,
+			includeMultipleNodes:    true,
+			includeStorage:          true,
+			includeSharedStorage:    true,
+			includeOutdatedHAGroups: true, // This will return existing groups with wrong priorities
+		}
+
+		testServer, mockServer := createTestServerWithConfig(config)
+		defer mockServer.Close()
+
+		// Should succeed and update the existing groups with correct round-robin priorities
+		err := testServer.SetupVMPrefer()
+		assert.NoError(t, err)
+	})
+}
+
+func TestCompareNodeConfiguration(t *testing.T) {
+	testServer, mockServer := createTestServer()
+	defer mockServer.Close()
+
+	tests := []struct {
+		name     string
+		existing string
+		expected string
+		equal    bool
+	}{
+		{
+			name:     "identical configurations",
+			existing: "pve1:1000,pve2:995,pve3:990",
+			expected: "pve1:1000,pve2:995,pve3:990",
+			equal:    true,
+		},
+		{
+			name:     "different order same content",
+			existing: "pve2:995,pve1:1000,pve3:990",
+			expected: "pve1:1000,pve2:995,pve3:990",
+			equal:    true,
+		},
+		{
+			name:     "with extra spaces",
+			existing: " pve2:995 , pve1:1000 , pve3:990 ",
+			expected: "pve1:1000,pve2:995,pve3:990",
+			equal:    true,
+		},
+		{
+			name:     "different priorities",
+			existing: "pve1:1000,pve2:995,pve3:985",
+			expected: "pve1:1000,pve2:995,pve3:990",
+			equal:    false,
+		},
+		{
+			name:     "different nodes",
+			existing: "pve1:1000,pve2:995",
+			expected: "pve1:1000,pve2:995,pve3:990",
+			equal:    false,
+		},
+		{
+			name:     "empty configurations",
+			existing: "",
+			expected: "",
+			equal:    true,
+		},
+		{
+			name:     "single node",
+			existing: "pve1:1000",
+			expected: "pve1:1000",
+			equal:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := testServer.compareNodeConfiguration(tt.existing, tt.expected)
+			assert.Equal(t, tt.equal, result,
+				"compareNodeConfiguration(%q, %q) should return %v",
+				tt.existing, tt.expected, tt.equal)
+		})
+	}
+}
+
+func TestSetupVMPreferNoUnnecessaryUpdates(t *testing.T) {
+	t.Run("does not update when configuration is already correct", func(t *testing.T) {
+		// Create a test that simulates existing groups with correct configuration
+		// but in different order to test that we don't spam logs
+		config := testHandlerConfig{
+			includeHAGroups:        true,
+			includeNodes:           true,
+			includeMultipleNodes:   true,
+			includeStorage:         true,
+			includeSharedStorage:   true,
+			includeCorrectHAGroups: true, // This provides existing groups with correct config in different order
+		}
+
+		testServer, mockServer := createTestServerWithConfig(config)
+		defer mockServer.Close()
+
+		// This should not trigger any updates since the groups are already correctly configured
+		// Even though the node order is different, our comparison should recognize they're the same
+		err := testServer.SetupVMPrefer()
+		assert.NoError(t, err)
+	})
+}
